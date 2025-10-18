@@ -37,10 +37,11 @@ export const BankCard = ({ bank, period, rank }: BankCardProps) => {
             <h3 className="font-semibold text-sm truncate">{bank.name}</h3>
           </div>
           <a
-            href={`https://live.euronext.com/en/product/equities/${bank.ticker.replace('.OL', '.no')}`}
+            href={`https://finance.yahoo.com/quote/${bank.ticker}`}
             target="_blank"
             rel="noopener noreferrer"
             className="text-xs text-muted-foreground hover:text-accent transition-colors"
+            title="Se på Yahoo Finance"
           >
             {bank.ticker}
           </a>

@@ -1,13 +1,52 @@
+import { useState } from 'react';
 import { useBankData } from '@/contexts/BankDataContext';
 import { Button } from '@/components/ui/button';
 import { Table as TableUI, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card } from '@/components/ui/card';
-import { RefreshCw, ExternalLink } from 'lucide-react';
+import { RefreshCw, ExternalLink, ArrowUpDown } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Navigation } from '@/components/Navigation';
+import type { BankData } from '@/types/bank';
+
+type SortField = 'name' | 'todayChange' | 'monthChange' | 'ytdChange' | 'yearChange';
+type SortDirection = 'asc' | 'desc';
 
 const Table = () => {
   const { banksData, loading, lastUpdated, fetchData } = useBankData();
+  const [sortField, setSortField] = useState<SortField>('name');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const sortedBanks = [...banksData].sort((a, b) => {
+    let aValue: string | number;
+    let bValue: string | number;
+
+    if (sortField === 'name') {
+      aValue = a.name;
+      bValue = b.name;
+    } else {
+      aValue = a[sortField];
+      bValue = b[sortField];
+    }
+
+    if (typeof aValue === 'string' && typeof bValue === 'string') {
+      return sortDirection === 'asc' 
+        ? aValue.localeCompare(bValue, 'nb-NO')
+        : bValue.localeCompare(aValue, 'nb-NO');
+    }
+
+    return sortDirection === 'asc' 
+      ? (aValue as number) - (bValue as number)
+      : (bValue as number) - (aValue as number);
+  });
 
   const formatChange = (change: number) => {
     const sign = change >= 0 ? '+' : '';
@@ -41,21 +80,61 @@ const Table = () => {
                   ))}
                 </div>
               ) : (
-                <TableUI>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Bank</TableHead>
-                      <TableHead>Ticker</TableHead>
-                      <TableHead className="text-right">Kurs</TableHead>
-                      <TableHead className="text-right">I dag</TableHead>
-                      <TableHead className="text-right">Siste måned</TableHead>
-                      <TableHead className="text-right">Hittil i år</TableHead>
-                      <TableHead className="text-right">Siste år</TableHead>
-                      <TableHead></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {banksData.map((bank) => (
+              <TableUI>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>
+                      <Button 
+                        variant="ghost" 
+                        onClick={() => handleSort('name')}
+                        className="hover:bg-transparent p-0 h-auto font-semibold"
+                      >
+                        Bank <ArrowUpDown className="ml-2 h-4 w-4 inline" />
+                      </Button>
+                    </TableHead>
+                    <TableHead>Ticker</TableHead>
+                    <TableHead className="text-right">Kurs</TableHead>
+                    <TableHead className="text-right">
+                      <Button 
+                        variant="ghost" 
+                        onClick={() => handleSort('todayChange')}
+                        className="hover:bg-transparent p-0 h-auto font-semibold"
+                      >
+                        I dag <ArrowUpDown className="ml-2 h-4 w-4 inline" />
+                      </Button>
+                    </TableHead>
+                    <TableHead className="text-right">
+                      <Button 
+                        variant="ghost" 
+                        onClick={() => handleSort('monthChange')}
+                        className="hover:bg-transparent p-0 h-auto font-semibold"
+                      >
+                        Siste måned <ArrowUpDown className="ml-2 h-4 w-4 inline" />
+                      </Button>
+                    </TableHead>
+                    <TableHead className="text-right">
+                      <Button 
+                        variant="ghost" 
+                        onClick={() => handleSort('ytdChange')}
+                        className="hover:bg-transparent p-0 h-auto font-semibold"
+                      >
+                        Hittil i år <ArrowUpDown className="ml-2 h-4 w-4 inline" />
+                      </Button>
+                    </TableHead>
+                    <TableHead className="text-right">
+                      <Button 
+                        variant="ghost" 
+                        onClick={() => handleSort('yearChange')}
+                        className="hover:bg-transparent p-0 h-auto font-semibold"
+                      >
+                        Siste år <ArrowUpDown className="ml-2 h-4 w-4 inline" />
+                      </Button>
+                    </TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sortedBanks.map((bank) => (
                       <TableRow key={bank.ticker}>
                         <TableCell className="font-medium">{bank.name}</TableCell>
                         <TableCell className="text-muted-foreground">{bank.ticker}</TableCell>
@@ -74,10 +153,11 @@ const Table = () => {
                         </TableCell>
                         <TableCell>
                           <a
-                            href={`https://live.euronext.com/en/product/equities/${bank.ticker}`}
+                            href={`https://finance.yahoo.com/quote/${bank.ticker}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-primary hover:text-primary/80"
+                            title="Se på Yahoo Finance"
                           >
                             <ExternalLink className="h-4 w-4" />
                           </a>
