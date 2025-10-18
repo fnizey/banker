@@ -1,67 +1,22 @@
 import { useState, useEffect } from 'react';
-import { BankData, Period, BANKS } from '@/types/bank';
-import { fetchAllBanksData } from '@/services/stockService';
+import { BankData, Period } from '@/types/bank';
+import { useBankData } from '@/contexts/BankDataContext';
 import { PeriodSelector } from './PeriodSelector';
 import { BankCard } from './BankCard';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { RefreshCw, TrendingUp, TrendingDown } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Navigation } from './Navigation';
-import { NewsFeed } from './NewsFeed';
 
 export const Dashboard = () => {
-  const [banksData, setBanksData] = useState<BankData[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { banksData, loading, lastUpdated, progress, fetchData } = useBankData();
   const [selectedPeriod, setSelectedPeriod] = useState<Period>('today');
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [progress, setProgress] = useState({ completed: 0, total: 0 });
-  const { toast } = useToast();
-
-  const fetchData = async () => {
-    setLoading(true);
-    setProgress({ completed: 0, total: BANKS.length });
-    
-    try {
-      const data = await fetchAllBanksData(BANKS, (completed, total) => {
-        setProgress({ completed, total });
-      });
-      
-      if (data.length === 0) {
-        toast({
-          title: 'Ingen data hentet',
-          description: 'Kunne ikke hente data for noen banker. Prøv igjen senere.',
-          variant: 'destructive',
-        });
-      } else if (data.length < BANKS.length) {
-        toast({
-          title: 'Delvis vellykket',
-          description: `Hentet data for ${data.length} av ${BANKS.length} banker.`,
-        });
-      } else {
-        toast({
-          title: 'Data oppdatert',
-          description: `Alle ${data.length} banker er oppdatert.`,
-        });
-      }
-      
-      setBanksData(data);
-      setLastUpdated(new Date());
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      toast({
-        title: 'Feil ved henting av data',
-        description: 'En feil oppstod. Vennligst prøv igjen.',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   useEffect(() => {
-    fetchData();
+    if (banksData.length === 0 && !loading) {
+      fetchData();
+    }
   }, []);
 
   const getChangeForPeriod = (bank: BankData): number => {
@@ -180,10 +135,6 @@ export const Dashboard = () => {
                 )}
               </>
             )}
-          </div>
-
-          <div className="lg:col-span-1">
-            <NewsFeed />
           </div>
         </div>
       </div>

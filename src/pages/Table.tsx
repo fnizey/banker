@@ -1,41 +1,13 @@
-import { useState, useEffect } from 'react';
-import { BANKS } from '@/types/bank';
-import type { BankData } from '@/types/bank';
-import { fetchAllBanksData } from '@/services/stockService';
+import { useBankData } from '@/contexts/BankDataContext';
 import { Button } from '@/components/ui/button';
 import { Table as TableUI, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card } from '@/components/ui/card';
 import { RefreshCw, ExternalLink } from 'lucide-react';
-import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Navigation } from '@/components/Navigation';
-import { NewsFeed } from '@/components/NewsFeed';
 
 const Table = () => {
-  const [banksData, setBanksData] = useState<BankData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-
-  const fetchData = async () => {
-    setLoading(true);
-    toast.info('Henter data for alle banker...');
-    
-    try {
-      const data = await fetchAllBanksData(BANKS);
-      setBanksData(data);
-      setLastUpdated(new Date());
-      toast.success(`Oppdatert data for ${data.length} banker`);
-    } catch (error) {
-      toast.error('Kunne ikke hente data');
-      console.error('Error fetching data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
+  const { banksData, loading, lastUpdated, fetchData } = useBankData();
 
   const formatChange = (change: number) => {
     const sign = change >= 0 ? '+' : '';
@@ -59,9 +31,7 @@ const Table = () => {
 
         <Navigation />
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <div className="lg:col-span-3">
-            <Card className="p-6">
+        <Card className="p-6">
               <h2 className="text-2xl font-semibold mb-4">Alle banker - oversikt</h2>
               
               {loading ? (
@@ -118,18 +88,12 @@ const Table = () => {
                 </TableUI>
               )}
 
-              {lastUpdated && (
-                <p className="text-sm text-muted-foreground mt-4">
-                  Sist oppdatert: {lastUpdated.toLocaleString('nb-NO')}
-                </p>
-              )}
-            </Card>
-          </div>
-
-          <div className="lg:col-span-1">
-            <NewsFeed />
-          </div>
-        </div>
+          {lastUpdated && (
+            <p className="text-sm text-muted-foreground mt-4">
+              Sist oppdatert: {lastUpdated.toLocaleString('nb-NO')}
+            </p>
+          )}
+        </Card>
       </div>
     </div>
   );

@@ -1,13 +1,10 @@
 import { useState, useEffect } from 'react';
-import { BANKS } from '@/types/bank';
 import type { BankData, Period } from '@/types/bank';
-import { fetchAllBanksData } from '@/services/stockService';
+import { useBankData } from '@/contexts/BankDataContext';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { RefreshCw } from 'lucide-react';
-import { toast } from 'sonner';
 import { Navigation } from '@/components/Navigation';
-import { NewsFeed } from '@/components/NewsFeed';
 import { PeriodSelector } from '@/components/PeriodSelector';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -15,35 +12,15 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 const Charts = () => {
-  const [banksData, setBanksData] = useState<BankData[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { banksData, loading, lastUpdated, fetchData } = useBankData();
   const [selectedPeriod, setSelectedPeriod] = useState<Period>('month');
   const [selectedBanks, setSelectedBanks] = useState<string[]>([]);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-
-  const fetchData = async () => {
-    setLoading(true);
-    toast.info('Henter data for alle banker...');
-    
-    try {
-      const data = await fetchAllBanksData(BANKS);
-      setBanksData(data);
-      setLastUpdated(new Date());
-      if (selectedBanks.length === 0 && data.length > 0) {
-        setSelectedBanks([data[0].ticker, data[1]?.ticker].filter(Boolean));
-      }
-      toast.success(`Oppdatert data for ${data.length} banker`);
-    } catch (error) {
-      toast.error('Kunne ikke hente data');
-      console.error('Error fetching data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (selectedBanks.length === 0 && banksData.length > 0) {
+      setSelectedBanks([banksData[0].ticker, banksData[1]?.ticker].filter(Boolean));
+    }
+  }, [banksData]);
 
   const getChangeForPeriod = (bank: BankData): number => {
     switch (selectedPeriod) {
@@ -76,8 +53,6 @@ const Charts = () => {
     ? chartData.reduce((sum, d) => sum + (d?.change || 0), 0) / chartData.length
     : 0;
 
-  const colors = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
-
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
@@ -91,9 +66,8 @@ const Charts = () => {
 
         <Navigation />
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <div className="lg:col-span-3 space-y-6">
-            <Card className="p-6">
+        <div className="space-y-6">
+          <Card className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-semibold">Sammenligning</h2>
                 <PeriodSelector selected={selectedPeriod} onChange={setSelectedPeriod} />
@@ -149,19 +123,14 @@ const Charts = () => {
                     </div>
                   ))}
                 </div>
-              </ScrollArea>
-            </Card>
+            </ScrollArea>
+          </Card>
 
-            {lastUpdated && (
-              <p className="text-sm text-muted-foreground">
-                Sist oppdatert: {lastUpdated.toLocaleString('nb-NO')}
-              </p>
-            )}
-          </div>
-
-          <div className="lg:col-span-1">
-            <NewsFeed />
-          </div>
+          {lastUpdated && (
+            <p className="text-sm text-muted-foreground">
+              Sist oppdatert: {lastUpdated.toLocaleString('nb-NO')}
+            </p>
+          )}
         </div>
       </div>
     </div>
