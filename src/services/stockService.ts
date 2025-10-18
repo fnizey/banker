@@ -23,12 +23,13 @@ interface YahooQuote {
   volume: number;
 }
 
-// Fetch data from Yahoo Finance API
+// Fetch data from Yahoo Finance API with CORS proxy
 const fetchYahooData = async (ticker: string): Promise<YahooQuote[]> => {
   const endDate = Math.floor(Date.now() / 1000);
   const startDate = Math.floor(new Date().setFullYear(new Date().getFullYear() - 1) / 1000);
   
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?period1=${startDate}&period2=${endDate}&interval=1d`;
+  const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?period1=${startDate}&period2=${endDate}&interval=1d`;
+  const url = `https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`;
   
   const response = await fetch(url);
   if (!response.ok) {
