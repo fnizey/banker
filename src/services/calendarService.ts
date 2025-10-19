@@ -15,10 +15,15 @@ export const fetchBankCalendarEvents = async (tickers: string[]): Promise<Calend
       const url = `https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`;
       
       const response = await fetch(url);
-      if (!response.ok) continue;
+      if (!response.ok) {
+        console.log(`Calendar API failed for ${ticker}: ${response.status}`);
+        continue;
+      }
       
       const data = await response.json();
       const calendarData = data.quoteSummary?.result?.[0]?.calendarEvents;
+      
+      console.log(`Calendar data for ${ticker}:`, calendarData);
       
       if (calendarData) {
         const event: CalendarEvent = {

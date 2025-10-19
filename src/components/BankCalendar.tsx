@@ -23,9 +23,16 @@ export const BankCalendar = ({ tickers }: BankCalendarProps) => {
 
   useEffect(() => {
     const loadCalendarData = async () => {
+      if (tickers.length === 0) {
+        setLoading(false);
+        return;
+      }
+      
       setLoading(true);
+      console.log('Loading calendar for tickers:', tickers);
       try {
         const calendarData = await fetchBankCalendarEvents(tickers);
+        console.log('Received calendar events:', calendarData);
         setEvents(calendarData);
       } catch (error) {
         console.error('Error loading calendar events:', error);
@@ -34,9 +41,7 @@ export const BankCalendar = ({ tickers }: BankCalendarProps) => {
       }
     };
 
-    if (tickers.length > 0) {
-      loadCalendarData();
-    }
+    loadCalendarData();
   }, [tickers]);
 
   const formatDate = (date: Date) => {
