@@ -15,6 +15,7 @@ export interface BankData extends Bank {
 export type Period = 'today' | 'month' | 'ytd' | 'year';
 
 export const BANKS: Bank[] = [
+  { name: 'DNB', ticker: 'DNB.OL' },
   { name: 'SB1 Sør-Norge', ticker: 'SB1NO.OL' },
   { name: 'Sparebanken Norge', ticker: 'SBNOR.OL' },
   { name: 'SB1 SMN', ticker: 'MING.OL' },

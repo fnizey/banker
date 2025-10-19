@@ -1,4 +1,5 @@
 import { Bank, BankData } from '@/types/bank';
+import { fetchBankCalendarEvents } from './calendarService';
 
 // Helper function to calculate percentage change
 const calculateChange = (current: number, previous: number): number => {
@@ -141,3 +142,45 @@ export const fetchAllBanksData = async (
   
   return results;
 };
+
+// Fetch weekly historical data for a bank
+export const fetchWeeklyData = async (ticker: string, period: 'month' | 'ytd' | 'year'): Promise<{ date: string; price: number }[]> => {
+  const endDate = Math.floor(Date.now() / 1000);
+  let startDate: number;
+  
+  switch (period) {
+    case 'month':
+      startDate = Math.floor(new Date().setDate(new Date().getDate() - 30) / 1000);
+      break;
+    case 'ytd':
+      const yearStart = new Date();
+      yearStart.setMonth(0, 1);
+      yearStart.setHours(0, 0, 0, 0);
+      startDate = Math.floor(yearStart.getTime() / 1000);
+      break;
+    case 'year':
+      startDate = Math.floor(new Date().setFullYear(new Date().getFullYear() - 1) / 1000);
+      break;
+  }
+  
+  const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?period1=${startDate}&period2=${endDate}&interval=1wk`;
+  const url = `https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`;
+  
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+  
+  const data = await response.json();
+  const result = data.chart?.result?.[0];
+  if (!result) throw new Error('No data received');
+  
+  const timestamps = result.timestamp || [];
+  const closes = result.indicators?.quote?.[0]?.close || [];
+  
+  return timestamps.map((timestamp: number, index: number) => ({
+    date: new Date(timestamp * 1000).toLocaleDateString('nb-NO', { day: '2-digit', month: 'short' }),
+    price: closes[index] || 0
+  })).filter((d: any) => d.price > 0);
+};
+
+// Re-export calendar events
+export { fetchBankCalendarEvents };

@@ -3,6 +3,7 @@ import { BankData, Period } from '@/types/bank';
 import { useBankData } from '@/contexts/BankDataContext';
 import { PeriodSelector } from './PeriodSelector';
 import { BankCard } from './BankCard';
+import { BankCalendar } from './BankCalendar';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { RefreshCw, TrendingUp, TrendingDown } from 'lucide-react';
@@ -88,7 +89,7 @@ export const Dashboard = () => {
                   <div>
                     <div className="flex items-center gap-2 mb-4">
                       <TrendingUp className="w-6 h-6 text-success" />
-                      <h2 className="text-2xl font-bold">Størst oppgang</h2>
+                      <h2 className="text-2xl font-bold">Best Utvikling</h2>
                     </div>
                     <div className="space-y-3">
                       {topGainers.map((bank, index) => (
@@ -106,7 +107,7 @@ export const Dashboard = () => {
                   <div>
                     <div className="flex items-center gap-2 mb-4">
                       <TrendingDown className="w-6 h-6 text-destructive" />
-                      <h2 className="text-2xl font-bold">Størst nedgang</h2>
+                      <h2 className="text-2xl font-bold">Dårligst Utvikling</h2>
                     </div>
                     <div className="space-y-3">
                       {topLosers.map((bank, index) => (
@@ -135,6 +136,10 @@ export const Dashboard = () => {
                 )}
               </>
             )}
+          </div>
+
+          <div className="lg:col-span-1">
+            <BankCalendar tickers={topGainers.map(b => b.ticker)} />
           </div>
         </div>
       </div>
