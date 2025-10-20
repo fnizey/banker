@@ -15,9 +15,15 @@ interface BankDataContextType {
 const BankDataContext = createContext<BankDataContextType | undefined>(undefined);
 
 export const BankDataProvider = ({ children }: { children: ReactNode }) => {
-  const [banksData, setBanksData] = useState<BankData[]>([]);
+  const [banksData, setBanksData] = useState<BankData[]>(() => {
+    const stored = localStorage.getItem('banksData');
+    return stored ? JSON.parse(stored) : [];
+  });
   const [loading, setLoading] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(() => {
+    const stored = localStorage.getItem('lastUpdated');
+    return stored ? new Date(stored) : null;
+  });
   const [progress, setProgress] = useState({ completed: 0, total: 0 });
 
   const fetchData = async () => {
@@ -31,7 +37,13 @@ export const BankDataProvider = ({ children }: { children: ReactNode }) => {
       });
       
       setBanksData(data);
-      setLastUpdated(new Date());
+      const now = new Date();
+      setLastUpdated(now);
+      
+      // Persist to localStorage
+      localStorage.setItem('banksData', JSON.stringify(data));
+      localStorage.setItem('lastUpdated', now.toISOString());
+      
       toast.success(`Oppdatert data for ${data.length} banker`);
     } catch (error) {
       toast.error('Kunne ikke hente data');

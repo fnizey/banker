@@ -14,11 +14,6 @@ export const Dashboard = () => {
   const { banksData, loading, lastUpdated, progress, fetchData } = useBankData();
   const [selectedPeriod, setSelectedPeriod] = useState<Period>('today');
 
-  useEffect(() => {
-    if (banksData.length === 0 && !loading) {
-      fetchData();
-    }
-  }, []);
 
   const getChangeForPeriod = (bank: BankData): number => {
     switch (selectedPeriod) {
@@ -81,6 +76,17 @@ export const Dashboard = () => {
                   </div>
                 ))}
               </div>
+            ) : banksData.length === 0 ? (
+              <Card className="p-8 text-center">
+                <h3 className="text-xl font-semibold mb-2">Ingen data lastet</h3>
+                <p className="text-muted-foreground mb-4">
+                  Klikk på "Oppdater data" for å laste inn bankdata
+                </p>
+                <Button onClick={fetchData} size="lg">
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Last inn data
+                </Button>
+              </Card>
             ) : (
               <>
                 {/* Top Gainers and Losers */}
