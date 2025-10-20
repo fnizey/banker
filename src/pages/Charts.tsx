@@ -205,13 +205,23 @@ const Charts = () => {
               </div>
 
               {indexedView && (
-                <div className="mb-4 p-4 bg-accent/50 rounded-lg">
-                  <p className="text-sm text-muted-foreground">
-                    📊 Indeksert visning: Starter på 100. Viser hvordan valgte banker presterer relativt til referansebanker.
-                    {referenceBanks.length === 0 && (
-                      <span className="text-destructive font-medium"> Velg minst én referansebank nedenfor.</span>
-                    )}
+                <div className="mb-4 p-4 bg-accent/50 rounded-lg space-y-2">
+                  <p className="text-sm font-semibold">
+                    📊 Indeksert visning - Relativ utvikling
                   </p>
+                  <p className="text-sm text-muted-foreground">
+                    Grafen viser hvordan valgte banker (teller) presterer relativt til gjennomsnittet av referansebankene (nevner).
+                  </p>
+                  <ul className="text-sm text-muted-foreground space-y-1 ml-4">
+                    <li>• <span className="font-medium">100 = Startpunkt</span> - Bank og referanse presterer likt</li>
+                    <li>• <span className="font-medium text-success">Over 100</span> - Banken presterer bedre enn referansen</li>
+                    <li>• <span className="font-medium text-destructive">Under 100</span> - Banken presterer dårligere enn referansen</li>
+                  </ul>
+                  {referenceBanks.length === 0 && (
+                    <p className="text-sm text-destructive font-medium mt-2">
+                      ⚠️ Velg minst én referansebank nedenfor for å se indeksert utvikling.
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -232,18 +242,26 @@ const Charts = () => {
                       position: 'insideLeft' 
                     }} />
                     <Tooltip 
-                      formatter={(value: number) => indexedView ? `${value.toFixed(2)}` : `${value.toFixed(2)} NOK`}
+                      formatter={(value: number) => 
+                        indexedView 
+                          ? [`Indeks: ${value.toFixed(2)}`, ''] 
+                          : [`${value.toFixed(2)} NOK`, '']
+                      }
                       labelStyle={{ color: 'hsl(var(--foreground))' }}
                       contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
                     />
                     <Legend />
                     {selectedBanks.map((ticker, index) => {
                       const bank = banksData.find(b => b.ticker === ticker);
+                      const label = indexedView && referenceBanks.length > 0
+                        ? `${bank?.name} vs Ref.`
+                        : bank?.name;
                       return bank ? (
                         <Line 
                           key={ticker}
                           type="monotone" 
                           dataKey={bank.name}
+                          name={label}
                           stroke={colors[index % colors.length]}
                           strokeWidth={2}
                           dot={false}
