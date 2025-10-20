@@ -9,7 +9,7 @@ import { PeriodSelector } from '@/components/PeriodSelector';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { BankCalendar } from '@/components/BankCalendar';
+
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -178,8 +178,7 @@ const Charts = () => {
 
         <Navigation />
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <div className="lg:col-span-3 space-y-6">
+        <div className="space-y-6">
             <Card className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-semibold">
@@ -351,11 +350,6 @@ const Charts = () => {
                 Sist oppdatert: {lastUpdated.toLocaleString('nb-NO')}
               </p>
             )}
-          </div>
-
-          <div className="lg:col-span-1">
-            <BankCalendar tickers={selectedBanks} />
-          </div>
         </div>
       </div>
     </div>

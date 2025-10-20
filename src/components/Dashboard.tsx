@@ -1,9 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { BankData, Period } from '@/types/bank';
 import { useBankData } from '@/contexts/BankDataContext';
 import { PeriodSelector } from './PeriodSelector';
 import { BankCard } from './BankCard';
-import { BankCalendar } from './BankCalendar';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { RefreshCw, TrendingUp, TrendingDown } from 'lucide-react';
@@ -45,8 +44,7 @@ export const Dashboard = () => {
 
         <Navigation />
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <div className="lg:col-span-3">
+        <div className="space-y-6">
             <Card className="p-6 mb-6">
               <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <PeriodSelector selected={selectedPeriod} onChange={setSelectedPeriod} />
@@ -142,11 +140,6 @@ export const Dashboard = () => {
                 )}
               </>
             )}
-          </div>
-
-          <div className="lg:col-span-1">
-            <BankCalendar tickers={topGainers.map(b => b.ticker)} />
-          </div>
         </div>
       </div>
     </div>

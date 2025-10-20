@@ -1,5 +1,4 @@
 import { Bank, BankData } from '@/types/bank';
-import { fetchBankCalendarEvents } from './calendarService';
 
 // Helper function to calculate percentage change
 const calculateChange = (current: number, previous: number): number => {
@@ -181,6 +180,3 @@ export const fetchWeeklyData = async (ticker: string, period: 'month' | 'ytd' | 
     price: closes[index] || 0
   })).filter((d: any) => d.price > 0);
 };
-
-// Re-export calendar events
-export { fetchBankCalendarEvents };
