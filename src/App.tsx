@@ -7,6 +7,7 @@ import { BankDataProvider } from "@/contexts/BankDataContext";
 import Index from "./pages/Index";
 import Table from "./pages/Table";
 import Charts from "./pages/Charts";
+import Reports from "./pages/Reports";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -22,6 +23,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/tabell" element={<Table />} />
             <Route path="/grafer" element={<Charts />} />
+            <Route path="/rapporter" element={<Reports />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

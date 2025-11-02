@@ -9,7 +9,6 @@ import { RefreshCw, TrendingUp, TrendingDown } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Navigation } from './Navigation';
 import { ActivityAlerts } from './ActivityAlerts';
-import { FinancialReports } from './FinancialReports';
 
 export const Dashboard = () => {
   const { banksData, loading, lastUpdated, progress, fetchData } = useBankData();
@@ -142,9 +141,6 @@ export const Dashboard = () => {
                 )}
                 {/* Activity Alerts */}
                 <ActivityAlerts banksData={banksData} />
-
-                {/* Financial Reports */}
-                <FinancialReports />
               </>
             )}
         </div>
