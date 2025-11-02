@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useBankData } from '@/contexts/BankDataContext';
 import { fetchFinancialStatements } from '@/services/stockService';
 import { FinancialStatement } from '@/types/bank';
-import { FileText, TrendingUp, Loader2 } from 'lucide-react';
+import { FileText, TrendingUp, Loader2, Download } from 'lucide-react';
 import { toast } from 'sonner';
 
 export const FinancialReports = () => {
@@ -52,11 +52,63 @@ export const FinancialReports = () => {
     return value.toFixed(decimals);
   };
 
+  const downloadCSV = () => {
+    if (statements.length === 0) {
+      toast.error('Ingen data å laste ned');
+      return;
+    }
+
+    const bankName = banksData.find(b => b.ticker === selectedBank)?.name || selectedBank;
+    const periodText = period === 'annual' ? 'Årlig' : 'Kvartalsvis';
+    
+    // Create CSV content
+    let csv = `${bankName} - Finansielle rapporter (${periodText})\n\n`;
+    
+    // Income statement
+    csv += 'RESULTATREGNSKAP\n';
+    csv += 'Periode,Inntekter,Driftsresultat,Nettoresultat,EPS\n';
+    statements.forEach(stmt => {
+      const date = new Date(stmt.date).toLocaleDateString('nb-NO');
+      csv += `${date},${stmt.revenue || ''},${stmt.operatingIncome || ''},${stmt.netIncome || ''},${stmt.eps || ''}\n`;
+    });
+    
+    csv += '\n';
+    
+    // Balance sheet
+    csv += 'BALANSE\n';
+    csv += 'Periode,Eiendeler,Gjeld,Egenkapital\n';
+    statements.forEach(stmt => {
+      const date = new Date(stmt.date).toLocaleDateString('nb-NO');
+      csv += `${date},${stmt.totalAssets || ''},${stmt.totalLiabilities || ''},${stmt.equity || ''}\n`;
+    });
+    
+    // Download
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${bankName}_${periodText}_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast.success('CSV-fil lastet ned');
+  };
+
   return (
     <Card className="p-6">
-      <div className="flex items-center gap-2 mb-6">
-        <FileText className="w-5 h-5 text-primary" />
-        <h2 className="text-xl font-semibold">Finansielle rapporter</h2>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-2">
+          <FileText className="w-5 h-5 text-primary" />
+          <h2 className="text-xl font-semibold">Finansielle rapporter</h2>
+        </div>
+        {statements.length > 0 && (
+          <Button onClick={downloadCSV} variant="outline" size="sm">
+            <Download className="mr-2 h-4 w-4" />
+            Last ned CSV
+          </Button>
+        )}
       </div>
 
       <div className="space-y-4 mb-6">

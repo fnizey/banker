@@ -258,48 +258,57 @@ export const fetchFinancialStatements = async (
   period: 'annual' | 'quarterly'
 ): Promise<FinancialStatement[]> => {
   try {
-    const yahooUrl = `https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/${ticker}?type=annualTotalRevenue,annualNetIncome,annualTotalAssets,annualTotalLiabilitiesNetMinorityInterest,annualStockholdersEquity,annualBasicEPS,annualOperatingIncome,quarterlyTotalRevenue,quarterlyNetIncome,quarterlyTotalAssets,quarterlyTotalLiabilitiesNetMinorityInterest,quarterlyStockholdersEquity,quarterlyBasicEPS,quarterlyOperatingIncome`;
+    const modules = period === 'annual' 
+      ? 'incomeStatementHistory,balanceSheetHistory'
+      : 'incomeStatementHistoryQuarterly,balanceSheetHistoryQuarterly';
+    
+    const yahooUrl = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=${modules}`;
     const url = `https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`;
     
     const response = await fetch(url);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     
     const data = await response.json();
-    const timeseries = data.timeseries?.result || [];
+    const result = data.quoteSummary?.result?.[0];
     
-    const statements: Map<string, Partial<FinancialStatement>> = new Map();
+    if (!result) return [];
     
-    timeseries.forEach((series: any) => {
-      const seriesData = series[Object.keys(series)[0]];
-      if (!seriesData || !Array.isArray(seriesData)) return;
+    const incomeKey = period === 'annual' ? 'incomeStatementHistory' : 'incomeStatementHistoryQuarterly';
+    const balanceKey = period === 'annual' ? 'balanceSheetHistory' : 'balanceSheetHistoryQuarterly';
+    
+    const incomeStatements = result[incomeKey]?.incomeStatementHistory || [];
+    const balanceSheets = result[balanceKey]?.balanceSheetStatements || [];
+    
+    // Combine income and balance sheet data by date
+    const statementsMap: Map<string, Partial<FinancialStatement>> = new Map();
+    
+    incomeStatements.forEach((stmt: any) => {
+      const date = stmt.endDate?.fmt;
+      if (!date) return;
       
-      const prefix = period === 'annual' ? 'annual' : 'quarterly';
-      const metaKey = series.meta?.type?.[0];
-      
-      if (!metaKey?.startsWith(prefix)) return;
-      
-      seriesData.forEach((item: any) => {
-        if (!item.asOfDate || !item.reportedValue?.raw) return;
-        
-        const date = item.asOfDate;
-        if (!statements.has(date)) {
-          statements.set(date, { date });
-        }
-        
-        const stmt = statements.get(date)!;
-        const value = item.reportedValue.raw;
-        
-        if (metaKey.includes('TotalRevenue')) stmt.revenue = value;
-        else if (metaKey.includes('NetIncome')) stmt.netIncome = value;
-        else if (metaKey.includes('TotalAssets')) stmt.totalAssets = value;
-        else if (metaKey.includes('TotalLiabilities')) stmt.totalLiabilities = value;
-        else if (metaKey.includes('StockholdersEquity')) stmt.equity = value;
-        else if (metaKey.includes('BasicEPS')) stmt.eps = value;
-        else if (metaKey.includes('OperatingIncome')) stmt.operatingIncome = value;
+      statementsMap.set(date, {
+        date,
+        revenue: stmt.totalRevenue?.raw,
+        netIncome: stmt.netIncome?.raw,
+        operatingIncome: stmt.operatingIncome?.raw,
+        eps: stmt.basicEPS?.raw,
       });
     });
     
-    return Array.from(statements.values())
+    balanceSheets.forEach((stmt: any) => {
+      const date = stmt.endDate?.fmt;
+      if (!date) return;
+      
+      const existing = statementsMap.get(date) || { date };
+      statementsMap.set(date, {
+        ...existing,
+        totalAssets: stmt.totalAssets?.raw,
+        totalLiabilities: stmt.totalLiab?.raw,
+        equity: stmt.totalStockholderEquity?.raw,
+      });
+    });
+    
+    return Array.from(statementsMap.values())
       .sort((a, b) => new Date(b.date!).getTime() - new Date(a.date!).getTime())
       .slice(0, 8) as FinancialStatement[];
       
