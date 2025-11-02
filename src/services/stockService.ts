@@ -1,4 +1,4 @@
-import { Bank, BankData } from '@/types/bank';
+import { Bank, BankData, VolumeAlert, PriceAlert, FinancialStatement } from '@/types/bank';
 
 // Helper function to calculate percentage change
 const calculateChange = (current: number, previous: number): number => {
@@ -99,6 +99,12 @@ const fetchBankData = async (bank: Bank, retries = 3): Promise<BankData | null> 
       const yearIndex = Math.max(0, quotes.length - 252);
       const yearChange = calculateChange(currentPrice, quotes[yearIndex].close);
 
+      // Calculate volume alert (last 30 days)
+      const volumeAlert = calculateVolumeAlert(quotes);
+
+      // Calculate price alert (6 months)
+      const priceAlert = calculatePriceAlert(quotes);
+
       return {
         ...bank,
         currentPrice,
@@ -106,6 +112,8 @@ const fetchBankData = async (bank: Bank, retries = 3): Promise<BankData | null> 
         monthChange,
         ytdChange,
         yearChange,
+        volumeAlert,
+        priceAlert,
         lastUpdated: new Date(),
       };
     } catch (error) {
@@ -179,4 +187,124 @@ export const fetchWeeklyData = async (ticker: string, period: 'month' | 'ytd' | 
     date: new Date(timestamp * 1000).toLocaleDateString('nb-NO', { day: '2-digit', month: 'short' }),
     price: closes[index] || 0
   })).filter((d: any) => d.price > 0);
+};
+
+// Calculate volume alert based on last 30 days
+const calculateVolumeAlert = (quotes: YahooQuote[]): VolumeAlert | undefined => {
+  if (quotes.length < 30) return undefined;
+
+  const last30Days = quotes.slice(-30);
+  const volumes = last30Days.map(q => q.volume);
+  
+  const avgVolume = volumes.reduce((sum, v) => sum + v, 0) / volumes.length;
+  const variance = volumes.reduce((sum, v) => sum + Math.pow(v - avgVolume, 2), 0) / volumes.length;
+  const stdDev = Math.sqrt(variance);
+  
+  const currentVolume = quotes[quotes.length - 1].volume;
+  const deviations = (currentVolume - avgVolume) / stdDev;
+  
+  let severity: 'normal' | 'warning' | 'high' = 'normal';
+  if (deviations > 2) severity = 'high';
+  else if (deviations > 1) severity = 'warning';
+  
+  return {
+    currentVolume,
+    avgVolume,
+    stdDev,
+    deviations,
+    severity
+  };
+};
+
+// Calculate price alert based on 6 months high/low
+const calculatePriceAlert = (quotes: YahooQuote[]): PriceAlert | undefined => {
+  if (quotes.length < 126) return undefined; // ~6 months of trading days
+  
+  const last6Months = quotes.slice(-126);
+  const currentPrice = quotes[quotes.length - 1].close;
+  
+  const prices = last6Months.map(q => q.close);
+  const highPrice = Math.max(...prices);
+  const lowPrice = Math.min(...prices);
+  
+  const tolerance = 0.02; // 2% tolerance
+  
+  // Check if near 6-month high
+  if (currentPrice >= highPrice * (1 - tolerance)) {
+    const changePercent = ((currentPrice - lowPrice) / lowPrice) * 100;
+    return {
+      type: 'high',
+      message: `Høyeste på 6 måneder`,
+      changePercent
+    };
+  }
+  
+  // Check if near 6-month low
+  if (currentPrice <= lowPrice * (1 + tolerance)) {
+    const changePercent = ((currentPrice - highPrice) / highPrice) * 100;
+    return {
+      type: 'low',
+      message: `Nærmer seg laveste siden ${new Date(last6Months[0].date).toLocaleDateString('nb-NO', { month: 'long' })}`,
+      changePercent
+    };
+  }
+  
+  return undefined;
+};
+
+// Fetch financial statements (annual or quarterly)
+export const fetchFinancialStatements = async (
+  ticker: string, 
+  period: 'annual' | 'quarterly'
+): Promise<FinancialStatement[]> => {
+  try {
+    const yahooUrl = `https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/${ticker}?type=annualTotalRevenue,annualNetIncome,annualTotalAssets,annualTotalLiabilitiesNetMinorityInterest,annualStockholdersEquity,annualBasicEPS,annualOperatingIncome,quarterlyTotalRevenue,quarterlyNetIncome,quarterlyTotalAssets,quarterlyTotalLiabilitiesNetMinorityInterest,quarterlyStockholdersEquity,quarterlyBasicEPS,quarterlyOperatingIncome`;
+    const url = `https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`;
+    
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    
+    const data = await response.json();
+    const timeseries = data.timeseries?.result || [];
+    
+    const statements: Map<string, Partial<FinancialStatement>> = new Map();
+    
+    timeseries.forEach((series: any) => {
+      const seriesData = series[Object.keys(series)[0]];
+      if (!seriesData || !Array.isArray(seriesData)) return;
+      
+      const prefix = period === 'annual' ? 'annual' : 'quarterly';
+      const metaKey = series.meta?.type?.[0];
+      
+      if (!metaKey?.startsWith(prefix)) return;
+      
+      seriesData.forEach((item: any) => {
+        if (!item.asOfDate || !item.reportedValue?.raw) return;
+        
+        const date = item.asOfDate;
+        if (!statements.has(date)) {
+          statements.set(date, { date });
+        }
+        
+        const stmt = statements.get(date)!;
+        const value = item.reportedValue.raw;
+        
+        if (metaKey.includes('TotalRevenue')) stmt.revenue = value;
+        else if (metaKey.includes('NetIncome')) stmt.netIncome = value;
+        else if (metaKey.includes('TotalAssets')) stmt.totalAssets = value;
+        else if (metaKey.includes('TotalLiabilities')) stmt.totalLiabilities = value;
+        else if (metaKey.includes('StockholdersEquity')) stmt.equity = value;
+        else if (metaKey.includes('BasicEPS')) stmt.eps = value;
+        else if (metaKey.includes('OperatingIncome')) stmt.operatingIncome = value;
+      });
+    });
+    
+    return Array.from(statements.values())
+      .sort((a, b) => new Date(b.date!).getTime() - new Date(a.date!).getTime())
+      .slice(0, 8) as FinancialStatement[];
+      
+  } catch (error) {
+    console.error('Error fetching financial statements:', error);
+    return [];
+  }
 };

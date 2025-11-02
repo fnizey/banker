@@ -10,6 +10,33 @@ export interface BankData extends Bank {
   ytdChange: number;
   yearChange: number;
   lastUpdated: Date;
+  volumeAlert?: VolumeAlert;
+  priceAlert?: PriceAlert;
+}
+
+export interface VolumeAlert {
+  currentVolume: number;
+  avgVolume: number;
+  stdDev: number;
+  deviations: number;
+  severity: 'normal' | 'warning' | 'high';
+}
+
+export interface PriceAlert {
+  type: 'high' | 'low' | 'none';
+  message: string;
+  changePercent: number;
+}
+
+export interface FinancialStatement {
+  date: string;
+  revenue?: number;
+  netIncome?: number;
+  totalAssets?: number;
+  totalLiabilities?: number;
+  equity?: number;
+  eps?: number;
+  operatingIncome?: number;
 }
 
 export type Period = 'today' | 'month' | 'ytd' | 'year';
