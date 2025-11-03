@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { Bell } from 'lucide-react';
+import { Bell, Activity, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -8,12 +7,11 @@ import {
 } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
 import { useBankData } from '@/contexts/BankDataContext';
+import { BankData } from '@/types/bank';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
 
 export const AlertsBell = () => {
   const { banksData } = useBankData();
-  const [open, setOpen] = useState(false);
 
   const volumeAlerts = banksData
     .filter(bank => bank.volumeAlert && bank.volumeAlert.severity !== 'normal')
@@ -25,121 +23,167 @@ export const AlertsBell = () => {
 
   const totalAlerts = volumeAlerts.length + priceAlerts.length;
 
+  const formatAlertDate = (bank: BankData) => {
+    if (!bank.lastUpdated) return '';
+    const date = new Date(bank.lastUpdated);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMinutes / 60);
+    
+    if (diffMinutes < 60) {
+      return `${diffMinutes} min siden`;
+    } else if (diffHours < 24) {
+      return `${diffHours}t siden`;
+    } else {
+      return date.toLocaleDateString('nb-NO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    }
+  };
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative">
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="relative hover:bg-accent/10 transition-colors"
+        >
           <Bell className="h-5 w-5" />
           {totalAlerts > 0 && (
             <Badge 
               variant="destructive" 
-              className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-xs"
+              className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs animate-pulse"
             >
               {totalAlerts}
             </Badge>
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-96" align="end">
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-lg">Markante bevegelser</h3>
-            {totalAlerts > 0 && (
-              <Badge variant="secondary">{totalAlerts}</Badge>
-            )}
+      <PopoverContent className="w-96 p-0 shadow-xl border-2" align="end">
+        <div className="p-4 border-b bg-gradient-to-r from-primary/5 to-accent/5">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <Bell className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-bold text-lg">Markante bevegelser</h3>
+              <p className="text-xs text-muted-foreground">
+                {totalAlerts === 0 ? 'Ingen varsler' : `${totalAlerts} aktive varsler`}
+              </p>
+            </div>
           </div>
-
-          {totalAlerts === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              Ingen uvanlige bevegelser registrert
-            </p>
-          ) : (
-            <ScrollArea className="h-[400px]">
-              <div className="space-y-4">
-                {/* Volume Alerts */}
-                {volumeAlerts.length > 0 && (
-                  <div>
-                    <h4 className="text-sm font-semibold text-muted-foreground mb-2">
-                      HØY OMSETNING
-                    </h4>
-                    <div className="space-y-2">
-                      {volumeAlerts.map(bank => {
-                        const alert = bank.volumeAlert!;
-                        const severity = alert.severity === 'high' ? 'destructive' : 'default';
-                        
-                        return (
-                          <div key={bank.ticker} className="p-3 rounded-lg border bg-card">
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <span className="font-medium text-sm">{bank.name}</span>
-                                  <Badge variant={severity} className="text-xs">
-                                    {alert.deviations.toFixed(1)} σ
-                                  </Badge>
-                                </div>
-                                <p className="text-xs text-muted-foreground">
-                                  {alert.deviations.toFixed(1)} std.avv. over snitt
-                                </p>
-                              </div>
-                              <div className="text-right text-xs">
-                                <div className="font-medium">
-                                  {(alert.currentVolume / 1000).toFixed(0)}k
-                                </div>
-                                <div className="text-muted-foreground">
-                                  ⌀ {(alert.avgVolume / 1000).toFixed(0)}k
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {volumeAlerts.length > 0 && priceAlerts.length > 0 && (
-                  <Separator />
-                )}
-
-                {/* Price Alerts */}
-                {priceAlerts.length > 0 && (
-                  <div>
-                    <h4 className="text-sm font-semibold text-muted-foreground mb-2">
-                      KURSBEVEGELSER
-                    </h4>
-                    <div className="space-y-2">
-                      {priceAlerts.map(bank => {
-                        const alert = bank.priceAlert!;
-                        const isHigh = alert.type === 'high';
-                        
-                        return (
-                          <div key={bank.ticker} className="p-3 rounded-lg border bg-card">
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <div className="font-medium text-sm mb-1">{bank.name}</div>
-                                <p className="text-xs text-muted-foreground">
-                                  {alert.message}
-                                </p>
-                              </div>
-                              <div className="text-right text-xs">
-                                <div className={`font-medium ${isHigh ? 'text-success' : 'text-destructive'}`}>
-                                  {isHigh ? '+' : ''}{alert.changePercent.toFixed(1)}%
-                                </div>
-                                <div className="text-muted-foreground">
-                                  {bank.currentPrice.toFixed(2)} NOK
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </ScrollArea>
-          )}
         </div>
+        
+        <ScrollArea className="h-[450px]">
+          {totalAlerts === 0 ? (
+            <div className="p-8 text-center text-muted-foreground">
+              <Bell className="h-12 w-12 mx-auto mb-3 opacity-50" />
+              <p className="font-medium">Ingen uvanlige bevegelser detektert</p>
+              <p className="text-xs mt-2">Varsler vises når banker har uvanlig høy omsetning eller når de treffer nye høyder/lavpunkter</p>
+            </div>
+          ) : (
+            <div className="p-4 space-y-4">
+              {/* Volume Alerts */}
+              {volumeAlerts.length > 0 && (
+                <div>
+                  <h4 className="font-bold text-sm mb-3 flex items-center gap-2 text-primary">
+                    <Activity className="h-4 w-4" />
+                    HØY OMSETNING
+                  </h4>
+                  <div className="space-y-2">
+                    {volumeAlerts.map(bank => {
+                      const alert = bank.volumeAlert!;
+                      const bgColor = alert.severity === 'high' 
+                        ? 'bg-destructive/10 border-destructive/30 hover:bg-destructive/15' 
+                        : 'bg-orange-500/10 border-orange-500/30 hover:bg-orange-500/15';
+                      
+                      return (
+                        <div 
+                          key={bank.ticker}
+                          className={`p-3 rounded-lg border transition-all ${bgColor}`}
+                        >
+                          <div className="flex items-start justify-between mb-1">
+                            <div className="font-semibold text-sm">{bank.name}</div>
+                            <Badge 
+                              variant={alert.severity === 'high' ? 'destructive' : 'secondary'}
+                              className="text-xs"
+                            >
+                              {alert.severity === 'high' ? '🔴 Høy' : '🟠 Advarsel'}
+                            </Badge>
+                          </div>
+                          <div className="text-xs text-muted-foreground mb-2">
+                            📊 Omsetning <strong>{alert.deviations.toFixed(1)}σ</strong> over snittet (30 dager)
+                          </div>
+                          <div className="flex items-center justify-between text-xs">
+                            <div className="space-x-2">
+                              <span className="text-muted-foreground">
+                                Snitt: {(alert.avgVolume / 1000).toFixed(0)}k
+                              </span>
+                              <span className="text-muted-foreground">•</span>
+                              <span className="font-bold">
+                                I dag: {(alert.currentVolume / 1000).toFixed(0)}k
+                              </span>
+                            </div>
+                            <span className="text-muted-foreground">
+                              {formatAlertDate(bank)}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Price Alerts */}
+              {priceAlerts.length > 0 && (
+                <div>
+                  <h4 className="font-bold text-sm mb-3 flex items-center gap-2 text-primary">
+                    <TrendingUp className="h-4 w-4" />
+                    KURSBEVEGELSER
+                  </h4>
+                  <div className="space-y-2">
+                    {priceAlerts.map(bank => {
+                      const alert = bank.priceAlert!;
+                      const isHigh = alert.type === 'high';
+                      const bgColor = isHigh 
+                        ? 'bg-success/10 border-success/30 hover:bg-success/15' 
+                        : 'bg-destructive/10 border-destructive/30 hover:bg-destructive/15';
+                      
+                      return (
+                        <div 
+                          key={bank.ticker}
+                          className={`p-3 rounded-lg border transition-all ${bgColor}`}
+                        >
+                          <div className="flex items-start justify-between mb-1">
+                            <div className="font-semibold text-sm">{bank.name}</div>
+                            <Badge 
+                              variant={isHigh ? 'default' : 'destructive'}
+                              className="text-xs"
+                            >
+                              {isHigh ? '📈 Høy' : '📉 Lav'}
+                            </Badge>
+                          </div>
+                          <div className="text-xs mb-2">
+                            {alert.message}
+                          </div>
+                          <div className="flex items-center justify-between text-xs">
+                            <div className="font-bold">
+                              {isHigh ? '🟢 ' : '🔴 '}{isHigh ? '+' : ''}{alert.changePercent.toFixed(2)}% fra {isHigh ? 'lavpunkt' : 'høydepunkt'}
+                            </div>
+                            <span className="text-muted-foreground">
+                              {formatAlertDate(bank)}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </ScrollArea>
       </PopoverContent>
     </Popover>
   );

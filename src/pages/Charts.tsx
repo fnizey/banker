@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { Period } from '@/types/bank';
 import { useBankData } from '@/contexts/BankDataContext';
+import { useSearch } from '@/contexts/SearchContext';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { RefreshCw } from 'lucide-react';
@@ -17,6 +18,7 @@ import { fetchWeeklyData } from '@/services/stockService';
 
 const Charts = () => {
   const { banksData, loading, lastUpdated, fetchData } = useBankData();
+  const { selectedBankTicker } = useSearch();
   const [selectedPeriod, setSelectedPeriod] = useState<Period>('year');
   const [selectedBanks, setSelectedBanks] = useState<string[]>([]);
   const [referenceBanks, setReferenceBanks] = useState<string[]>([]);
@@ -24,11 +26,21 @@ const Charts = () => {
   const [chartData, setChartData] = useState<any[]>([]);
   const [loadingChart, setLoadingChart] = useState(false);
 
+  // Filter banks based on search
+  const filteredBanks = selectedBankTicker 
+    ? banksData.filter(bank => bank.ticker === selectedBankTicker)
+    : banksData;
+
   useEffect(() => {
-    if (selectedBanks.length === 0 && banksData.length > 0) {
-      setSelectedBanks([banksData[0].ticker, banksData[1]?.ticker].filter(Boolean));
+    if (selectedBanks.length === 0 && filteredBanks.length > 0) {
+      // If filtered, select only that bank, otherwise select first two
+      if (selectedBankTicker) {
+        setSelectedBanks([filteredBanks[0].ticker]);
+      } else {
+        setSelectedBanks([filteredBanks[0].ticker, filteredBanks[1]?.ticker].filter(Boolean));
+      }
     }
-  }, [banksData]);
+  }, [filteredBanks, selectedBankTicker]);
 
   useEffect(() => {
     const loadChartData = async () => {
@@ -118,7 +130,7 @@ const Charts = () => {
     };
 
     loadChartData();
-  }, [selectedBanks, referenceBanks, selectedPeriod, indexedView, banksData]);
+  }, [selectedBanks, referenceBanks, selectedPeriod, indexedView, filteredBanks]);
 
   const toggleBank = (ticker: string) => {
     setSelectedBanks(prev => 
@@ -137,18 +149,18 @@ const Charts = () => {
   };
 
   const toggleSelectAll = () => {
-    if (selectedBanks.length === banksData.length) {
+    if (selectedBanks.length === filteredBanks.length) {
       setSelectedBanks([]);
     } else {
-      setSelectedBanks(banksData.map(b => b.ticker));
+      setSelectedBanks(filteredBanks.map(b => b.ticker));
     }
   };
 
   const toggleSelectAllReference = () => {
-    if (referenceBanks.length === banksData.length) {
+    if (referenceBanks.length === filteredBanks.length) {
       setReferenceBanks([]);
     } else {
-      setReferenceBanks(banksData.map(b => b.ticker));
+      setReferenceBanks(filteredBanks.map(b => b.ticker));
     }
   };
 
@@ -169,8 +181,17 @@ const Charts = () => {
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-4xl font-bold">📊 Sparebank-dashboard – Oslo Børs</h1>
-          <Button onClick={fetchData} disabled={loading}>
+          <div>
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+              {selectedBankTicker 
+                ? `${filteredBanks[0]?.name || 'Bank'} - Historisk utvikling`
+                : '📊 Sparebank-dashboard – Oslo Børs'}
+            </h1>
+            {selectedBankTicker && (
+              <p className="text-muted-foreground mt-2">Viser kun data for {filteredBanks[0]?.name}</p>
+            )}
+          </div>
+          <Button onClick={fetchData} disabled={loading} className="shadow-lg hover:shadow-xl transition-shadow">
             <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Oppdater data
           </Button>
@@ -179,9 +200,9 @@ const Charts = () => {
         <Navigation />
 
         <div className="space-y-6">
-            <Card className="p-6">
+            <Card className="p-6 shadow-lg border-2 bg-gradient-to-br from-card via-card to-accent/5">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-semibold">
+                <h2 className="text-2xl font-bold">
                   {indexedView ? 'Indeksert Kursutvikling' : 'Ukentlig Kursutvikling'}
                 </h2>
                 <div className="flex items-center gap-4">
@@ -191,7 +212,7 @@ const Charts = () => {
                       checked={indexedView}
                       onCheckedChange={setIndexedView}
                     />
-                    <Label htmlFor="indexed-view" className="cursor-pointer">
+                    <Label htmlFor="indexed-view" className="cursor-pointer font-medium">
                       Indeksert visning
                     </Label>
                   </div>
@@ -272,15 +293,15 @@ const Charts = () => {
               )}
             </Card>
 
-            <Card className="p-6">
+            <Card className="p-6 shadow-lg border-2 bg-gradient-to-br from-card via-card to-accent/5">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-semibold">
+                <h3 className="text-xl font-bold">
                   Velg banker å analysere {indexedView && '(Teller)'}
                 </h3>
                 <div className="flex items-center space-x-2">
                   <Checkbox
                     id="select-all"
-                    checked={selectedBanks.length === banksData.length}
+                    checked={selectedBanks.length === filteredBanks.length}
                     onCheckedChange={toggleSelectAll}
                   />
                   <Label htmlFor="select-all" className="font-medium cursor-pointer">
@@ -290,7 +311,7 @@ const Charts = () => {
               </div>
               <ScrollArea className="h-[250px]">
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {banksData.map((bank) => (
+                  {filteredBanks.map((bank) => (
                     <div key={bank.ticker} className="flex items-center space-x-2">
                       <Checkbox
                         id={bank.ticker}
@@ -307,10 +328,10 @@ const Charts = () => {
             </Card>
 
             {indexedView && (
-              <Card className="p-6">
+              <Card className="p-6 shadow-lg border-2 bg-gradient-to-br from-card via-card to-accent/5">
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <h3 className="text-xl font-semibold">Velg referansebanker (Nevner)</h3>
+                    <h3 className="text-xl font-bold">Velg referansebanker (Nevner)</h3>
                     <p className="text-sm text-muted-foreground mt-1">
                       Bankene ovenfor vil sammenlignes mot gjennomsnittet av disse
                     </p>
@@ -318,7 +339,7 @@ const Charts = () => {
                   <div className="flex items-center space-x-2">
                     <Checkbox
                       id="select-all-reference"
-                      checked={referenceBanks.length === banksData.length}
+                      checked={referenceBanks.length === filteredBanks.length}
                       onCheckedChange={toggleSelectAllReference}
                     />
                     <Label htmlFor="select-all-reference" className="font-medium cursor-pointer">
@@ -328,7 +349,7 @@ const Charts = () => {
                 </div>
                 <ScrollArea className="h-[250px]">
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {banksData.map((bank) => (
+                    {filteredBanks.map((bank) => (
                       <div key={`ref-${bank.ticker}`} className="flex items-center space-x-2">
                         <Checkbox
                           id={`ref-${bank.ticker}`}
@@ -346,7 +367,8 @@ const Charts = () => {
             )}
 
             {lastUpdated && (
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground flex items-center gap-2">
+                <div className="h-2 w-2 bg-success rounded-full animate-pulse" />
                 Sist oppdatert: {lastUpdated.toLocaleString('nb-NO')}
               </p>
             )}
