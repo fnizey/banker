@@ -19,7 +19,7 @@ export const SSBNewsFeed = () => {
   useEffect(() => {
     const fetchNews = async () => {
       try {
-        const RSS_URL = 'https://www.ssb.no/rss/';
+        const RSS_URL = 'https://www.ssb.no/rss/statkal';
         
         const response = await fetch(RSS_URL);
         const text = await response.text();
@@ -65,14 +65,14 @@ export const SSBNewsFeed = () => {
   };
 
   return (
-    <Card className="p-6 bg-gradient-to-br from-card via-card to-accent/5">
-      <div className="flex items-center gap-3 mb-4">
-        <div className="p-2 bg-primary/10 rounded-lg">
-          <BarChart3 className="h-5 w-5 text-primary" />
+    <Card className="p-6 bg-gradient-to-br from-card via-card/50 to-chart-2/10 shadow-lg border-border/50 hover:shadow-xl transition-all">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="p-2.5 bg-chart-2/20 rounded-xl shadow-sm">
+          <BarChart3 className="h-6 w-6 text-chart-2" />
         </div>
-        <div>
-          <h2 className="text-xl font-bold">Statistisk sentralbyrå</h2>
-          <p className="text-sm text-muted-foreground">Siste publiseringer</p>
+        <div className="flex-1">
+          <h2 className="text-xl font-bold tracking-tight">Statistisk sentralbyrå</h2>
+          <p className="text-sm text-muted-foreground">Kommende publiseringer</p>
         </div>
       </div>
 
@@ -87,34 +87,34 @@ export const SSBNewsFeed = () => {
           ))}
         </div>
       ) : (
-        <ScrollArea className="h-[400px] pr-4">
-          <div className="space-y-4">
+        <ScrollArea className="h-[420px] pr-4">
+          <div className="space-y-3">
             {news.map((item, index) => (
               <a
                 key={index}
                 href={item.link}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block p-4 rounded-lg border border-border/50 hover:border-primary/30 hover:bg-accent/5 transition-all group"
+                className="block p-4 rounded-xl border border-border/40 bg-card/50 hover:border-chart-2/40 hover:bg-accent/10 hover:shadow-md transition-all duration-300 group"
               >
                 <div className="flex items-start justify-between gap-3 mb-2">
-                  <h3 className="font-semibold text-sm leading-tight group-hover:text-primary transition-colors flex-1">
+                  <h3 className="font-semibold text-sm leading-snug group-hover:text-chart-2 transition-colors flex-1">
                     {item.title}
                   </h3>
-                  <ExternalLink className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0 mt-0.5" />
+                  <ExternalLink className="h-4 w-4 text-muted-foreground/60 group-hover:text-chart-2 transition-colors flex-shrink-0 mt-0.5" />
                 </div>
                 
                 {item.description && (
-                  <p className="text-xs text-muted-foreground line-clamp-2 mb-3">
+                  <p className="text-xs text-muted-foreground/90 line-clamp-2 mb-3 leading-relaxed">
                     {item.description}
                   </p>
                 )}
                 
                 <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="text-xs font-normal">
+                  <Badge variant="secondary" className="text-xs font-medium bg-chart-2/10 text-chart-2 border-chart-2/20">
                     SSB
                   </Badge>
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-xs text-muted-foreground/70">
                     {formatDate(item.pubDate)}
                   </span>
                 </div>

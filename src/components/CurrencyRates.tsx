@@ -83,14 +83,14 @@ export const CurrencyRates = () => {
   };
 
   return (
-    <Card className="p-6 bg-gradient-to-br from-card via-card to-primary/5">
-      <div className="flex items-center gap-3 mb-4">
-        <div className="p-2 bg-primary/10 rounded-lg">
-          <TrendingUp className="h-5 w-5 text-primary" />
+    <Card className="p-6 bg-gradient-to-br from-card via-card/50 to-chart-1/10 shadow-lg border-border/50 hover:shadow-xl transition-all">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="p-2.5 bg-chart-1/20 rounded-xl shadow-sm">
+          <TrendingUp className="h-6 w-6 text-chart-1" />
         </div>
-        <div>
-          <h2 className="text-xl font-bold">Valutakurser</h2>
-          <p className="text-sm text-muted-foreground">Fra Norges Bank</p>
+        <div className="flex-1">
+          <h2 className="text-xl font-bold tracking-tight">Valutakurser</h2>
+          <p className="text-sm text-muted-foreground">Norges Bank</p>
         </div>
       </div>
 
@@ -103,32 +103,34 @@ export const CurrencyRates = () => {
           ))}
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {rates.map((rate, index) => {
             const Icon = getCurrencyIcon(rate.currency);
+            const isUSD = rate.currency === 'USD';
             return (
               <div
                 key={index}
-                className="p-4 rounded-lg border border-border/50 bg-accent/5 hover:bg-accent/10 transition-all"
+                className="p-5 rounded-xl border border-border/40 bg-gradient-to-br from-card/50 to-accent/5 hover:shadow-lg hover:border-chart-1/40 transition-all duration-300 group"
               >
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-primary/10 rounded-lg">
-                      <Icon className="h-5 w-5 text-primary" />
+                    <div className={`p-2.5 ${isUSD ? 'bg-chart-1/20' : 'bg-chart-3/20'} rounded-xl shadow-sm group-hover:scale-110 transition-transform`}>
+                      <Icon className={`h-6 w-6 ${isUSD ? 'text-chart-1' : 'text-chart-3'}`} />
                     </div>
                     <div>
-                      <Badge variant="secondary" className="text-xs font-bold">
+                      <Badge variant="secondary" className={`text-sm font-bold ${isUSD ? 'bg-chart-1/10 text-chart-1 border-chart-1/20' : 'bg-chart-3/10 text-chart-3 border-chart-3/20'}`}>
                         {rate.currency}/NOK
                       </Badge>
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-2xl font-bold text-primary">
+                    <div className={`text-3xl font-bold ${isUSD ? 'text-chart-1' : 'text-chart-3'} tracking-tight`}>
                       {rate.rate}
                     </div>
                   </div>
                 </div>
-                <div className="text-xs text-muted-foreground">
+                <div className="text-xs text-muted-foreground/70 flex items-center gap-1">
+                  <span className={`h-1.5 w-1.5 rounded-full ${isUSD ? 'bg-chart-1' : 'bg-chart-3'} animate-pulse`}></span>
                   Oppdatert: {formatDate(rate.date)}
                 </div>
               </div>
