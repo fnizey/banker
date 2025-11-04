@@ -2,27 +2,24 @@ import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { ExternalLink, Newspaper } from 'lucide-react';
+import { ExternalLink, BarChart3 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
-interface NewsItem {
+interface SSBNewsItem {
   title: string;
   link: string;
   description: string;
-  category: string;
   pubDate: string;
-  creator: string;
 }
 
-export const NewsFeed = () => {
-  const [news, setNews] = useState<NewsItem[]>([]);
+export const SSBNewsFeed = () => {
+  const [news, setNews] = useState<SSBNewsItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchNews = async () => {
       try {
-        // Using the correct FinansWatch RSS feed
-        const RSS_URL = 'https://rss-feed-api.aws.jyllands-posten.dk/finanswatch.no/latest';
+        const RSS_URL = 'https://www.ssb.no/rss/';
         
         const response = await fetch(RSS_URL);
         const text = await response.text();
@@ -30,19 +27,17 @@ export const NewsFeed = () => {
         const parser = new DOMParser();
         const xml = parser.parseFromString(text, 'text/xml');
         
-        const items = Array.from(xml.querySelectorAll('item')).slice(0, 10);
-        const newsItems: NewsItem[] = items.map(item => ({
+        const items = Array.from(xml.querySelectorAll('item')).slice(0, 8);
+        const newsItems: SSBNewsItem[] = items.map(item => ({
           title: item.querySelector('title')?.textContent || '',
           link: item.querySelector('link')?.textContent || '',
           description: item.querySelector('description')?.textContent?.replace(/<[^>]*>/g, '') || '',
-          category: item.querySelector('category')?.textContent || '',
           pubDate: item.querySelector('pubDate')?.textContent || '',
-          creator: item.querySelector('dc\\:creator, creator')?.textContent || '',
         }));
         
         setNews(newsItems);
       } catch (error) {
-        console.error('Error fetching news:', error);
+        console.error('Error fetching SSB news:', error);
       } finally {
         setLoading(false);
       }
@@ -73,11 +68,11 @@ export const NewsFeed = () => {
     <Card className="p-6 bg-gradient-to-br from-card via-card to-accent/5">
       <div className="flex items-center gap-3 mb-4">
         <div className="p-2 bg-primary/10 rounded-lg">
-          <Newspaper className="h-5 w-5 text-primary" />
+          <BarChart3 className="h-5 w-5 text-primary" />
         </div>
         <div>
-          <h2 className="text-xl font-bold">Siste nytt fra FinansWatch</h2>
-          <p className="text-sm text-muted-foreground">Oppdateres automatisk</p>
+          <h2 className="text-xl font-bold">Statistisk sentralbyrå</h2>
+          <p className="text-sm text-muted-foreground">Siste publiseringer</p>
         </div>
       </div>
 
@@ -92,7 +87,7 @@ export const NewsFeed = () => {
           ))}
         </div>
       ) : (
-        <ScrollArea className="h-[500px] pr-4">
+        <ScrollArea className="h-[400px] pr-4">
           <div className="space-y-4">
             {news.map((item, index) => (
               <a
@@ -109,16 +104,16 @@ export const NewsFeed = () => {
                   <ExternalLink className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0 mt-0.5" />
                 </div>
                 
-                <p className="text-xs text-muted-foreground line-clamp-2 mb-3">
-                  {item.description}
-                </p>
+                {item.description && (
+                  <p className="text-xs text-muted-foreground line-clamp-2 mb-3">
+                    {item.description}
+                  </p>
+                )}
                 
-                <div className="flex items-center gap-2 flex-wrap">
-                  {item.category && (
-                    <Badge variant="secondary" className="text-xs font-normal">
-                      {item.category}
-                    </Badge>
-                  )}
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="text-xs font-normal">
+                    SSB
+                  </Badge>
                   <span className="text-xs text-muted-foreground">
                     {formatDate(item.pubDate)}
                   </span>

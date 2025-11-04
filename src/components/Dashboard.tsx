@@ -10,6 +10,8 @@ import { RefreshCw, TrendingUp, TrendingDown } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Navigation } from './Navigation';
 import { NewsFeed } from './NewsFeed';
+import { CurrencyRates } from './CurrencyRates';
+import { SSBNewsFeed } from './SSBNewsFeed';
 
 export const Dashboard = () => {
   const { banksData, loading, lastUpdated, progress, fetchData } = useBankData();
@@ -165,8 +167,10 @@ export const Dashboard = () => {
           </div>
 
           {/* News Feed Sidebar */}
-          <div className="lg:col-span-1">
+          <div className="lg:col-span-1 space-y-6">
+            <CurrencyRates />
             <NewsFeed />
+            <SSBNewsFeed />
           </div>
         </div>
       </div>
