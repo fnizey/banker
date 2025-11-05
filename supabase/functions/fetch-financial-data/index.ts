@@ -68,86 +68,86 @@ serve(async (req) => {
 });
 
 async function fetchFinancials(ticker: string, period: 'annual' | 'quarterly') {
-  const modules = period === 'annual' 
-    ? 'incomeStatementHistory,balanceSheetHistory,cashflowStatementHistory'
-    : 'incomeStatementHistoryQuarterly,balanceSheetHistoryQuarterly,cashflowStatementHistoryQuarterly';
+  const RAPIDAPI_KEY = Deno.env.get('RAPIDAPI_KEY');
+  if (!RAPIDAPI_KEY) {
+    throw new Error('RAPIDAPI_KEY is not configured');
+  }
+
+  // RapidAPI Yahoo Finance endpoint
+  const endpoint = period === 'annual' ? 'annual' : 'quarterly';
+  const url = `https://yahoo-finance15.p.rapidapi.com/api/v1/markets/stock/modules?ticker=${ticker}&module=income-statement,balance-sheet,cash-flow&type=${endpoint}`;
   
-  const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=${modules}`;
-  
-  console.log(`Fetching from: ${url}`);
+  console.log(`Fetching from RapidAPI: ${url}`);
   
   const response = await fetch(url, {
     headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Accept': 'application/json',
-      'Accept-Language': 'en-US,en;q=0.9',
-      'Referer': 'https://finance.yahoo.com/',
-      'Origin': 'https://finance.yahoo.com',
+      'X-RapidAPI-Key': RAPIDAPI_KEY,
+      'X-RapidAPI-Host': 'yahoo-finance15.p.rapidapi.com'
     }
   });
   if (!response.ok) {
-    throw new Error(`Yahoo Finance API error: ${response.status}`);
+    const errorText = await response.text();
+    console.error('RapidAPI error response:', errorText);
+    throw new Error(`RapidAPI error: ${response.status}`);
   }
   
   const data = await response.json();
-  const result = data.quoteSummary?.result?.[0];
+  console.log('RapidAPI response structure:', Object.keys(data));
   
-  if (!result) {
+  if (!data || !data.body) {
     return { statements: [] };
   }
   
-  const incomeKey = period === 'annual' ? 'incomeStatementHistory' : 'incomeStatementHistoryQuarterly';
-  const balanceKey = period === 'annual' ? 'balanceSheetHistory' : 'balanceSheetHistoryQuarterly';
-  const cashflowKey = period === 'annual' ? 'cashflowStatementHistory' : 'cashflowStatementHistoryQuarterly';
-  
-  const incomeStatements = result[incomeKey]?.incomeStatementHistory || [];
-  const balanceSheets = result[balanceKey]?.balanceSheetStatements || [];
-  const cashflowStatements = result[cashflowKey]?.cashflowStatements || [];
+  // Parse RapidAPI response structure
+  const result = data.body;
+  const incomeStatement = result['income-statement']?.[endpoint] || [];
+  const balanceSheet = result['balance-sheet']?.[endpoint] || [];
+  const cashFlow = result['cash-flow']?.[endpoint] || [];
   
   // Combine all data by date
   const statementsMap = new Map();
   
-  incomeStatements.forEach((stmt: any) => {
-    const date = stmt.endDate?.fmt;
+  incomeStatement.forEach((stmt: any) => {
+    const date = stmt.asOfDate || stmt.date;
     if (!date) return;
     
     statementsMap.set(date, {
       date,
-      revenue: stmt.totalRevenue?.raw,
-      netIncome: stmt.netIncome?.raw,
-      operatingIncome: stmt.operatingIncome?.raw,
-      grossProfit: stmt.grossProfit?.raw,
-      eps: stmt.basicEPS?.raw,
-      ebitda: stmt.ebitda?.raw,
+      revenue: stmt.TotalRevenue,
+      netIncome: stmt.NetIncome,
+      operatingIncome: stmt.OperatingIncome,
+      grossProfit: stmt.GrossProfit,
+      eps: stmt.BasicEPS,
+      ebitda: stmt.EBITDA,
     });
   });
   
-  balanceSheets.forEach((stmt: any) => {
-    const date = stmt.endDate?.fmt;
+  balanceSheet.forEach((stmt: any) => {
+    const date = stmt.asOfDate || stmt.date;
     if (!date) return;
     
     const existing = statementsMap.get(date) || { date };
     statementsMap.set(date, {
       ...existing,
-      totalAssets: stmt.totalAssets?.raw,
-      totalLiabilities: stmt.totalLiab?.raw,
-      equity: stmt.totalStockholderEquity?.raw,
-      cash: stmt.cash?.raw,
-      totalDebt: stmt.totalDebt?.raw,
+      totalAssets: stmt.TotalAssets,
+      totalLiabilities: stmt.TotalLiabilitiesNetMinorityInterest,
+      equity: stmt.StockholdersEquity,
+      cash: stmt.CashAndCashEquivalents,
+      totalDebt: stmt.TotalDebt,
     });
   });
   
-  cashflowStatements.forEach((stmt: any) => {
-    const date = stmt.endDate?.fmt;
+  cashFlow.forEach((stmt: any) => {
+    const date = stmt.asOfDate || stmt.date;
     if (!date) return;
     
     const existing = statementsMap.get(date) || { date };
     statementsMap.set(date, {
       ...existing,
-      operatingCashFlow: stmt.totalCashFromOperatingActivities?.raw,
-      investingCashFlow: stmt.totalCashflowsFromInvestingActivities?.raw,
-      financingCashFlow: stmt.totalCashFromFinancingActivities?.raw,
-      freeCashFlow: stmt.freeCashFlow?.raw,
+      operatingCashFlow: stmt.OperatingCashFlow,
+      investingCashFlow: stmt.InvestingCashFlow,
+      financingCashFlow: stmt.FinancingCashFlow,
+      freeCashFlow: stmt.FreeCashFlow,
     });
   });
   
