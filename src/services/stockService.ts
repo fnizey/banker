@@ -252,68 +252,116 @@ const calculatePriceAlert = (quotes: YahooQuote[]): PriceAlert | undefined => {
   return undefined;
 };
 
-// Fetch financial statements (annual or quarterly)
+// Fetch financial statements using Lovable Cloud backend
 export const fetchFinancialStatements = async (
   ticker: string, 
   period: 'annual' | 'quarterly'
 ): Promise<FinancialStatement[]> => {
   try {
-    const modules = period === 'annual' 
-      ? 'incomeStatementHistory,balanceSheetHistory'
-      : 'incomeStatementHistoryQuarterly,balanceSheetHistoryQuarterly';
+    const response = await fetch(
+      'https://jyytqtahbslasgslkzwq.supabase.co/functions/v1/fetch-financial-data',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ticker,
+          dataType: 'financials',
+          period,
+        }),
+      }
+    );
     
-    const yahooUrl = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=${modules}`;
-    const url = `https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`;
+    if (!response.ok) {
+      throw new Error(`Backend error: ${response.status}`);
+    }
     
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    const result = await response.json();
     
-    const data = await response.json();
-    const result = data.quoteSummary?.result?.[0];
+    if (!result.success || !result.data?.statements) {
+      return [];
+    }
     
-    if (!result) return [];
-    
-    const incomeKey = period === 'annual' ? 'incomeStatementHistory' : 'incomeStatementHistoryQuarterly';
-    const balanceKey = period === 'annual' ? 'balanceSheetHistory' : 'balanceSheetHistoryQuarterly';
-    
-    const incomeStatements = result[incomeKey]?.incomeStatementHistory || [];
-    const balanceSheets = result[balanceKey]?.balanceSheetStatements || [];
-    
-    // Combine income and balance sheet data by date
-    const statementsMap: Map<string, Partial<FinancialStatement>> = new Map();
-    
-    incomeStatements.forEach((stmt: any) => {
-      const date = stmt.endDate?.fmt;
-      if (!date) return;
-      
-      statementsMap.set(date, {
-        date,
-        revenue: stmt.totalRevenue?.raw,
-        netIncome: stmt.netIncome?.raw,
-        operatingIncome: stmt.operatingIncome?.raw,
-        eps: stmt.basicEPS?.raw,
-      });
-    });
-    
-    balanceSheets.forEach((stmt: any) => {
-      const date = stmt.endDate?.fmt;
-      if (!date) return;
-      
-      const existing = statementsMap.get(date) || { date };
-      statementsMap.set(date, {
-        ...existing,
-        totalAssets: stmt.totalAssets?.raw,
-        totalLiabilities: stmt.totalLiab?.raw,
-        equity: stmt.totalStockholderEquity?.raw,
-      });
-    });
-    
-    return Array.from(statementsMap.values())
-      .sort((a, b) => new Date(b.date!).getTime() - new Date(a.date!).getTime())
-      .slice(0, 8) as FinancialStatement[];
+    return result.data.statements as FinancialStatement[];
       
   } catch (error) {
     console.error('Error fetching financial statements:', error);
     return [];
+  }
+};
+
+// Fetch dividends data
+export const fetchDividends = async (ticker: string) => {
+  try {
+    const response = await fetch(
+      'https://jyytqtahbslasgslkzwq.supabase.co/functions/v1/fetch-financial-data',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ticker,
+          dataType: 'dividends',
+        }),
+      }
+    );
+    
+    const result = await response.json();
+    return result.success ? result.data.dividends : [];
+  } catch (error) {
+    console.error('Error fetching dividends:', error);
+    return [];
+  }
+};
+
+// Fetch stock splits data
+export const fetchSplits = async (ticker: string) => {
+  try {
+    const response = await fetch(
+      'https://jyytqtahbslasgslkzwq.supabase.co/functions/v1/fetch-financial-data',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ticker,
+          dataType: 'splits',
+        }),
+      }
+    );
+    
+    const result = await response.json();
+    return result.success ? result.data.splits : [];
+  } catch (error) {
+    console.error('Error fetching splits:', error);
+    return [];
+  }
+};
+
+// Fetch major holders and institutional ownership
+export const fetchHolders = async (ticker: string) => {
+  try {
+    const response = await fetch(
+      'https://jyytqtahbslasgslkzwq.supabase.co/functions/v1/fetch-financial-data',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ticker,
+          dataType: 'holders',
+        }),
+      }
+    );
+    
+    const result = await response.json();
+    return result.success ? result.data : { majorHolders: {}, institutionalHolders: [] };
+  } catch (error) {
+    console.error('Error fetching holders:', error);
+    return { majorHolders: {}, institutionalHolders: [] };
   }
 };
