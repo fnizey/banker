@@ -97,6 +97,15 @@ async function fetchFinancials(ticker: string, period: 'annual' | 'quarterly') {
   console.log(`RapidAPI response status: ${response.status}`);
   console.log(`RapidAPI response headers:`, Object.fromEntries(response.headers.entries()));
   
+  // HTTP 204 means no content - the ticker is not supported
+  if (response.status === 204) {
+    console.warn(`No financial data available for ${cleanTicker} in region ${region}`);
+    return { 
+      statements: [],
+      error: `Financial data not available for ${ticker}. This API may not support Norwegian stocks.`
+    };
+  }
+  
   if (!response.ok) {
     const errorText = await response.text();
     console.error('RapidAPI error response:', errorText);
