@@ -68,18 +68,20 @@ serve(async (req) => {
 });
 
 async function fetchFinancials(ticker: string, period: 'annual' | 'quarterly') {
-  // Use Yahoo Finance quoteSummary API directly - it supports Norwegian stocks
+  // Use Yahoo Finance quoteSummary API via CORS proxy - it supports Norwegian stocks
   const modules = period === 'annual' 
     ? 'incomeStatementHistory,balanceSheetHistory,cashflowStatementHistory'
     : 'incomeStatementHistoryQuarterly,balanceSheetHistoryQuarterly,cashflowStatementHistoryQuarterly';
   
-  const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=${modules}`;
+  const yahooUrl = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=${modules}`;
+  const url = `https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`;
   
   console.log(`Fetching financials from Yahoo Finance for ${ticker}, period: ${period}`);
   
   const response = await fetch(url, {
     headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      'Accept': 'application/json',
     }
   });
   
@@ -182,15 +184,17 @@ async function fetchFinancials(ticker: string, period: 'annual' | 'quarterly') {
 }
 
 async function fetchDividends(ticker: string) {
-  // Use Yahoo Finance chart API for dividends
+  // Use Yahoo Finance chart API for dividends via CORS proxy
   const period1 = Math.floor(Date.now() / 1000) - (365 * 24 * 60 * 60 * 5); // 5 years ago
   const period2 = Math.floor(Date.now() / 1000);
   
-  const url = `https://query2.finance.yahoo.com/v8/finance/chart/${ticker}?period1=${period1}&period2=${period2}&interval=1d&events=div`;
+  const yahooUrl = `https://query2.finance.yahoo.com/v8/finance/chart/${ticker}?period1=${period1}&period2=${period2}&interval=1d&events=div`;
+  const url = `https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`;
   
   const response = await fetch(url, {
     headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      'Accept': 'application/json',
     }
   });
   
@@ -210,15 +214,17 @@ async function fetchDividends(ticker: string) {
 }
 
 async function fetchSplits(ticker: string) {
-  // Use Yahoo Finance chart API for splits
+  // Use Yahoo Finance chart API for splits via CORS proxy
   const period1 = Math.floor(Date.now() / 1000) - (365 * 24 * 60 * 60 * 10); // 10 years ago
   const period2 = Math.floor(Date.now() / 1000);
   
-  const url = `https://query2.finance.yahoo.com/v8/finance/chart/${ticker}?period1=${period1}&period2=${period2}&interval=1d&events=split`;
+  const yahooUrl = `https://query2.finance.yahoo.com/v8/finance/chart/${ticker}?period1=${period1}&period2=${period2}&interval=1d&events=split`;
+  const url = `https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`;
   
   const response = await fetch(url, {
     headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      'Accept': 'application/json',
     }
   });
   
@@ -240,12 +246,14 @@ async function fetchSplits(ticker: string) {
 }
 
 async function fetchHolders(ticker: string) {
-  // Use Yahoo Finance quoteSummary API for holders
-  const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=majorHoldersBreakdown,institutionOwnership`;
+  // Use Yahoo Finance quoteSummary API for holders via CORS proxy
+  const yahooUrl = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=majorHoldersBreakdown,institutionOwnership`;
+  const url = `https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`;
   
   const response = await fetch(url, {
     headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      'Accept': 'application/json',
     }
   });
   
