@@ -26,7 +26,7 @@ export const FinancialReports = () => {
     try {
       const data = await fetchFinancialStatements(selectedBank, period);
       if (data.length === 0) {
-        toast.info('Finansielle data er ikke tilgjengelig for norske banker via dette API. Vi jobber med en alternativ løsning.');
+        toast.info('Ingen finansielle data tilgjengelig');
       } else {
         setStatements(data);
         toast.success('Rapporter hentet');

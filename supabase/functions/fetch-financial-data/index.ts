@@ -68,56 +68,34 @@ serve(async (req) => {
 });
 
 async function fetchFinancials(ticker: string, period: 'annual' | 'quarterly') {
-  const RAPIDAPI_KEY = Deno.env.get('RAPIDAPI_KEY');
-  if (!RAPIDAPI_KEY) {
-    throw new Error('RAPIDAPI_KEY is not configured');
-  }
-
-  // Try to determine the region based on ticker suffix
-  let region = 'US';
-  let cleanTicker = ticker;
+  // Use Yahoo Finance quoteSummary API directly - it supports Norwegian stocks
+  const modules = period === 'annual' 
+    ? 'incomeStatementHistory,balanceSheetHistory,cashflowStatementHistory'
+    : 'incomeStatementHistoryQuarterly,balanceSheetHistoryQuarterly,cashflowStatementHistoryQuarterly';
   
-  if (ticker.includes('.OL')) {
-    region = 'NO'; // Norway
-    cleanTicker = ticker; // Keep the full ticker for Norwegian stocks
-  }
+  const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=${modules}`;
   
-  // Use apidojo Yahoo Finance API
-  const url = `https://apidojo-yahoo-finance-v1.p.rapidapi.com/stock/v2/get-financials?symbol=${cleanTicker}&region=${region}`;
-  
-  console.log(`Fetching financials from apidojo for ${cleanTicker}, region: ${region}, url: ${url}`);
+  console.log(`Fetching financials from Yahoo Finance for ${ticker}, period: ${period}`);
   
   const response = await fetch(url, {
     headers: {
-      'X-RapidAPI-Key': RAPIDAPI_KEY,
-      'X-RapidAPI-Host': 'apidojo-yahoo-finance-v1.p.rapidapi.com'
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
     }
   });
   
-  console.log(`RapidAPI response status: ${response.status}`);
-  console.log(`RapidAPI response headers:`, Object.fromEntries(response.headers.entries()));
-  
-  // HTTP 204 means no content - the ticker is not supported
-  if (response.status === 204) {
-    console.warn(`No financial data available for ${cleanTicker} in region ${region}`);
-    return { 
-      statements: [],
-      error: `Financial data not available for ${ticker}. This API may not support Norwegian stocks.`
-    };
-  }
+  console.log(`Yahoo Finance response status: ${response.status}`);
   
   if (!response.ok) {
     const errorText = await response.text();
-    console.error('RapidAPI error response:', errorText);
-    throw new Error(`RapidAPI error: ${response.status} - ${errorText}`);
+    console.error('Yahoo Finance error response:', errorText);
+    throw new Error(`Yahoo Finance error: ${response.status}`);
   }
   
   const responseText = await response.text();
-  console.log('RapidAPI response text:', responseText.substring(0, 200)); // Log first 200 chars
   
   if (!responseText || responseText.trim() === '') {
-    console.error('Empty response from RapidAPI');
-    throw new Error('Empty response from RapidAPI');
+    console.error('Empty response from Yahoo Finance');
+    throw new Error('Empty response from Yahoo Finance');
   }
   
   let data;
@@ -125,23 +103,27 @@ async function fetchFinancials(ticker: string, period: 'annual' | 'quarterly') {
     data = JSON.parse(responseText);
   } catch (e) {
     console.error('Failed to parse JSON response:', e);
-    console.error('Response text:', responseText);
-    throw new Error('Invalid JSON response from RapidAPI');
+    console.error('Response text:', responseText.substring(0, 500));
+    throw new Error('Invalid JSON response from Yahoo Finance');
   }
   
-  if (!data || !data.incomeStatementHistory) {
+  console.log('Yahoo Finance data structure:', JSON.stringify(data).substring(0, 300));
+  
+  if (!data.quoteSummary || !data.quoteSummary.result || data.quoteSummary.result.length === 0) {
     console.warn('No financial data found in response');
     return { statements: [] };
   }
   
-  // Choose between annual and quarterly
+  const result = data.quoteSummary.result[0];
+  
+  // Get the appropriate statement arrays based on period
   const incomeKey = period === 'annual' ? 'incomeStatementHistory' : 'incomeStatementHistoryQuarterly';
   const balanceKey = period === 'annual' ? 'balanceSheetHistory' : 'balanceSheetHistoryQuarterly';
   const cashflowKey = period === 'annual' ? 'cashflowStatementHistory' : 'cashflowStatementHistoryQuarterly';
   
-  const incomeStatements = data[incomeKey]?.incomeStatementHistory || [];
-  const balanceSheets = data[balanceKey]?.balanceSheetStatements || [];
-  const cashflowStatements = data[cashflowKey]?.cashflowStatements || [];
+  const incomeStatements = result[incomeKey]?.incomeStatementHistory || [];
+  const balanceSheets = result[balanceKey]?.balanceSheetStatements || [];
+  const cashflowStatements = result[cashflowKey]?.cashflowStatements || [];
   
   console.log(`Found ${incomeStatements.length} income statements, ${balanceSheets.length} balance sheets`);
   
@@ -200,116 +182,86 @@ async function fetchFinancials(ticker: string, period: 'annual' | 'quarterly') {
 }
 
 async function fetchDividends(ticker: string) {
-  const RAPIDAPI_KEY = Deno.env.get('RAPIDAPI_KEY');
-  if (!RAPIDAPI_KEY) {
-    throw new Error('RAPIDAPI_KEY is not configured');
-  }
-
-  const url = `https://apidojo-yahoo-finance-v1.p.rapidapi.com/stock/v2/get-timeseries?symbol=${ticker}&region=US`;
+  // Use Yahoo Finance chart API for dividends
+  const period1 = Math.floor(Date.now() / 1000) - (365 * 24 * 60 * 60 * 5); // 5 years ago
+  const period2 = Math.floor(Date.now() / 1000);
+  
+  const url = `https://query2.finance.yahoo.com/v8/finance/chart/${ticker}?period1=${period1}&period2=${period2}&interval=1d&events=div`;
   
   const response = await fetch(url, {
     headers: {
-      'X-RapidAPI-Key': RAPIDAPI_KEY,
-      'X-RapidAPI-Host': 'apidojo-yahoo-finance-v1.p.rapidapi.com'
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
     }
   });
   
   if (!response.ok) {
-    throw new Error(`RapidAPI error: ${response.status}`);
+    throw new Error(`Yahoo Finance error: ${response.status}`);
   }
   
   const data = await response.json();
-  const timeseries = data.timeseries?.result || [];
+  const events = data.chart?.result?.[0]?.events?.dividends || {};
   
-  const dividends: any[] = [];
-  
-  timeseries.forEach((series: any) => {
-    if (series.meta?.type?.[0] === 'dividend') {
-      const divData = series.dividend || [];
-      divData.forEach((div: any) => {
-        if (div.amount && div.date) {
-          dividends.push({
-            date: new Date(div.date * 1000).toISOString(),
-            amount: div.amount,
-          });
-        }
-      });
-    }
-  });
+  const dividends = Object.values(events).map((div: any) => ({
+    date: new Date(div.date * 1000).toISOString(),
+    amount: div.amount,
+  }));
   
   return { dividends };
 }
 
 async function fetchSplits(ticker: string) {
-  const RAPIDAPI_KEY = Deno.env.get('RAPIDAPI_KEY');
-  if (!RAPIDAPI_KEY) {
-    throw new Error('RAPIDAPI_KEY is not configured');
-  }
-
-  const url = `https://apidojo-yahoo-finance-v1.p.rapidapi.com/stock/v2/get-timeseries?symbol=${ticker}&region=US`;
+  // Use Yahoo Finance chart API for splits
+  const period1 = Math.floor(Date.now() / 1000) - (365 * 24 * 60 * 60 * 10); // 10 years ago
+  const period2 = Math.floor(Date.now() / 1000);
+  
+  const url = `https://query2.finance.yahoo.com/v8/finance/chart/${ticker}?period1=${period1}&period2=${period2}&interval=1d&events=split`;
   
   const response = await fetch(url, {
     headers: {
-      'X-RapidAPI-Key': RAPIDAPI_KEY,
-      'X-RapidAPI-Host': 'apidojo-yahoo-finance-v1.p.rapidapi.com'
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
     }
   });
   
   if (!response.ok) {
-    throw new Error(`RapidAPI error: ${response.status}`);
+    throw new Error(`Yahoo Finance error: ${response.status}`);
   }
   
   const data = await response.json();
-  const timeseries = data.timeseries?.result || [];
+  const events = data.chart?.result?.[0]?.events?.splits || {};
   
-  const splits: any[] = [];
-  
-  timeseries.forEach((series: any) => {
-    if (series.meta?.type?.[0] === 'split') {
-      const splitData = series.splits || [];
-      splitData.forEach((split: any) => {
-        if (split.date && split.numerator && split.denominator) {
-          splits.push({
-            date: new Date(split.date * 1000).toISOString(),
-            numerator: split.numerator,
-            denominator: split.denominator,
-            ratio: `${split.numerator}:${split.denominator}`,
-          });
-        }
-      });
-    }
-  });
+  const splits = Object.values(events).map((split: any) => ({
+    date: new Date(split.date * 1000).toISOString(),
+    numerator: split.numerator,
+    denominator: split.denominator,
+    ratio: `${split.numerator}:${split.denominator}`,
+  }));
   
   return { splits };
 }
 
 async function fetchHolders(ticker: string) {
-  const RAPIDAPI_KEY = Deno.env.get('RAPIDAPI_KEY');
-  if (!RAPIDAPI_KEY) {
-    throw new Error('RAPIDAPI_KEY is not configured');
-  }
-
-  const url = `https://apidojo-yahoo-finance-v1.p.rapidapi.com/stock/v2/get-holders?symbol=${ticker}&region=US`;
+  // Use Yahoo Finance quoteSummary API for holders
+  const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=majorHoldersBreakdown,institutionOwnership`;
   
   const response = await fetch(url, {
     headers: {
-      'X-RapidAPI-Key': RAPIDAPI_KEY,
-      'X-RapidAPI-Host': 'apidojo-yahoo-finance-v1.p.rapidapi.com'
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
     }
   });
   
   if (!response.ok) {
-    throw new Error(`RapidAPI error: ${response.status}`);
+    throw new Error(`Yahoo Finance error: ${response.status}`);
   }
   
   const data = await response.json();
+  const result = data.quoteSummary?.result?.[0] || {};
   
   const majorHolders = {
-    insidersPercentHeld: data.majorHoldersBreakdown?.insidersPercentHeld?.raw,
-    institutionsPercentHeld: data.majorHoldersBreakdown?.institutionsPercentHeld?.raw,
+    insidersPercentHeld: result.majorHoldersBreakdown?.insidersPercentHeld?.raw,
+    institutionsPercentHeld: result.majorHoldersBreakdown?.institutionsPercentHeld?.raw,
   };
   
-  const institutionalHolders = (data.institutionOwnership?.ownershipList || [])
+  const institutionalHolders = (result.institutionOwnership?.ownershipList || [])
     .slice(0, 10)
     .map((holder: any) => ({
       organization: holder.organization,
