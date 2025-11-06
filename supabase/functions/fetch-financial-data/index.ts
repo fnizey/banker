@@ -88,10 +88,25 @@ async function fetchFinancials(ticker: string, period: 'annual' | 'quarterly') {
   if (!response.ok) {
     const errorText = await response.text();
     console.error('RapidAPI error response:', errorText);
-    throw new Error(`RapidAPI error: ${response.status}`);
+    throw new Error(`RapidAPI error: ${response.status} - ${errorText}`);
   }
   
-  const data = await response.json();
+  const responseText = await response.text();
+  console.log('RapidAPI response text:', responseText.substring(0, 200)); // Log first 200 chars
+  
+  if (!responseText || responseText.trim() === '') {
+    console.error('Empty response from RapidAPI');
+    throw new Error('Empty response from RapidAPI');
+  }
+  
+  let data;
+  try {
+    data = JSON.parse(responseText);
+  } catch (e) {
+    console.error('Failed to parse JSON response:', e);
+    console.error('Response text:', responseText);
+    throw new Error('Invalid JSON response from RapidAPI');
+  }
   
   if (!data || !data.incomeStatementHistory) {
     console.warn('No financial data found in response');
