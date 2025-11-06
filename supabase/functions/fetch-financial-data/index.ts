@@ -73,10 +73,19 @@ async function fetchFinancials(ticker: string, period: 'annual' | 'quarterly') {
     throw new Error('RAPIDAPI_KEY is not configured');
   }
 
-  // Use apidojo Yahoo Finance API
-  const url = `https://apidojo-yahoo-finance-v1.p.rapidapi.com/stock/v2/get-financials?symbol=${ticker}&region=US`;
+  // Try to determine the region based on ticker suffix
+  let region = 'US';
+  let cleanTicker = ticker;
   
-  console.log(`Fetching financials from apidojo for ${ticker}`);
+  if (ticker.includes('.OL')) {
+    region = 'NO'; // Norway
+    cleanTicker = ticker; // Keep the full ticker for Norwegian stocks
+  }
+  
+  // Use apidojo Yahoo Finance API
+  const url = `https://apidojo-yahoo-finance-v1.p.rapidapi.com/stock/v2/get-financials?symbol=${cleanTicker}&region=${region}`;
+  
+  console.log(`Fetching financials from apidojo for ${cleanTicker}, region: ${region}, url: ${url}`);
   
   const response = await fetch(url, {
     headers: {
@@ -84,6 +93,9 @@ async function fetchFinancials(ticker: string, period: 'annual' | 'quarterly') {
       'X-RapidAPI-Host': 'apidojo-yahoo-finance-v1.p.rapidapi.com'
     }
   });
+  
+  console.log(`RapidAPI response status: ${response.status}`);
+  console.log(`RapidAPI response headers:`, Object.fromEntries(response.headers.entries()));
   
   if (!response.ok) {
     const errorText = await response.text();
