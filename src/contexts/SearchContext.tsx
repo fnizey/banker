@@ -1,8 +1,10 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
 
 interface SearchContextType {
-  selectedBankTicker: string | null;
-  setSelectedBankTicker: (ticker: string | null) => void;
+  selectedBankTickers: string[];
+  addBankTab: (ticker: string) => void;
+  removeBankTab: (ticker: string) => void;
+  clearAllTabs: () => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
 }
@@ -10,13 +12,29 @@ interface SearchContextType {
 const SearchContext = createContext<SearchContextType | undefined>(undefined);
 
 export const SearchProvider = ({ children }: { children: ReactNode }) => {
-  const [selectedBankTicker, setSelectedBankTicker] = useState<string | null>(null);
+  const [selectedBankTickers, setSelectedBankTickers] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+
+  const addBankTab = (ticker: string) => {
+    if (!selectedBankTickers.includes(ticker)) {
+      setSelectedBankTickers([...selectedBankTickers, ticker]);
+    }
+  };
+
+  const removeBankTab = (ticker: string) => {
+    setSelectedBankTickers(selectedBankTickers.filter(t => t !== ticker));
+  };
+
+  const clearAllTabs = () => {
+    setSelectedBankTickers([]);
+  };
 
   return (
     <SearchContext.Provider value={{ 
-      selectedBankTicker, 
-      setSelectedBankTicker,
+      selectedBankTickers,
+      addBankTab,
+      removeBankTab,
+      clearAllTabs,
       searchQuery,
       setSearchQuery
     }}>

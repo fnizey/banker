@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 
 export const SearchBar = () => {
   const { banksData } = useBankData();
-  const { selectedBankTicker, setSelectedBankTicker, searchQuery, setSearchQuery } = useSearch();
+  const { addBankTab, searchQuery, setSearchQuery } = useSearch();
   const [isOpen, setIsOpen] = useState(false);
   const [filteredBanks, setFilteredBanks] = useState(banksData);
   const searchRef = useRef<HTMLDivElement>(null);
@@ -40,17 +40,10 @@ export const SearchBar = () => {
   }, []);
 
   const handleBankSelect = (ticker: string) => {
-    setSelectedBankTicker(ticker);
+    addBankTab(ticker);
     setSearchQuery('');
     setIsOpen(false);
   };
-
-  const handleClearFilter = () => {
-    setSelectedBankTicker(null);
-    setSearchQuery('');
-  };
-
-  const selectedBank = banksData.find(b => b.ticker === selectedBankTicker);
 
   return (
     <div className="relative" ref={searchRef}>
@@ -66,23 +59,6 @@ export const SearchBar = () => {
             className="pl-10 pr-4 bg-card/50 border-border/50 focus:bg-card"
           />
         </div>
-
-        {selectedBank && (
-          <Badge 
-            variant="secondary" 
-            className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20"
-          >
-            <span className="font-medium">{selectedBank.name}</span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleClearFilter}
-              className="h-4 w-4 p-0 hover:bg-transparent"
-            >
-              <X className="h-3 w-3" />
-            </Button>
-          </Badge>
-        )}
       </div>
 
       {isOpen && filteredBanks.length > 0 && (

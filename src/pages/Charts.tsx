@@ -18,7 +18,6 @@ import { fetchWeeklyData } from '@/services/stockService';
 
 const Charts = () => {
   const { banksData, loading, lastUpdated, fetchData } = useBankData();
-  const { selectedBankTicker } = useSearch();
   const [selectedPeriod, setSelectedPeriod] = useState<Period>('year');
   const [selectedBanks, setSelectedBanks] = useState<string[]>([]);
   const [referenceBanks, setReferenceBanks] = useState<string[]>([]);
@@ -26,21 +25,11 @@ const Charts = () => {
   const [chartData, setChartData] = useState<any[]>([]);
   const [loadingChart, setLoadingChart] = useState(false);
 
-  // Filter banks based on search
-  const filteredBanks = selectedBankTicker 
-    ? banksData.filter(bank => bank.ticker === selectedBankTicker)
-    : banksData;
-
   useEffect(() => {
-    if (selectedBanks.length === 0 && filteredBanks.length > 0) {
-      // If filtered, select only that bank, otherwise select first two
-      if (selectedBankTicker) {
-        setSelectedBanks([filteredBanks[0].ticker]);
-      } else {
-        setSelectedBanks([filteredBanks[0].ticker, filteredBanks[1]?.ticker].filter(Boolean));
-      }
+    if (selectedBanks.length === 0 && banksData.length > 0) {
+      setSelectedBanks([banksData[0].ticker, banksData[1]?.ticker].filter(Boolean));
     }
-  }, [filteredBanks, selectedBankTicker]);
+  }, [banksData]);
 
   useEffect(() => {
     const loadChartData = async () => {
@@ -130,7 +119,7 @@ const Charts = () => {
     };
 
     loadChartData();
-  }, [selectedBanks, referenceBanks, selectedPeriod, indexedView, filteredBanks]);
+  }, [selectedBanks, referenceBanks, selectedPeriod, indexedView, banksData]);
 
   const toggleBank = (ticker: string) => {
     setSelectedBanks(prev => 
@@ -149,18 +138,18 @@ const Charts = () => {
   };
 
   const toggleSelectAll = () => {
-    if (selectedBanks.length === filteredBanks.length) {
+    if (selectedBanks.length === banksData.length) {
       setSelectedBanks([]);
     } else {
-      setSelectedBanks(filteredBanks.map(b => b.ticker));
+      setSelectedBanks(banksData.map(b => b.ticker));
     }
   };
 
   const toggleSelectAllReference = () => {
-    if (referenceBanks.length === filteredBanks.length) {
+    if (referenceBanks.length === banksData.length) {
       setReferenceBanks([]);
     } else {
-      setReferenceBanks(filteredBanks.map(b => b.ticker));
+      setReferenceBanks(banksData.map(b => b.ticker));
     }
   };
 
@@ -183,13 +172,9 @@ const Charts = () => {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              {selectedBankTicker 
-                ? `${filteredBanks[0]?.name || 'Bank'} - Historisk utvikling`
-                : '📊 Sparebank-dashboard – Oslo Børs'}
+              📊 Sparebank-dashboard – Oslo Børs
             </h1>
-            {selectedBankTicker && (
-              <p className="text-muted-foreground mt-2">Viser kun data for {filteredBanks[0]?.name}</p>
-            )}
+            <p className="text-muted-foreground mt-2">Historisk kursutvikling</p>
           </div>
           <Button onClick={fetchData} disabled={loading} className="shadow-lg hover:shadow-xl transition-shadow">
             <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
@@ -301,7 +286,7 @@ const Charts = () => {
                 <div className="flex items-center space-x-2">
                   <Checkbox
                     id="select-all"
-                    checked={selectedBanks.length === filteredBanks.length}
+                    checked={selectedBanks.length === banksData.length}
                     onCheckedChange={toggleSelectAll}
                   />
                   <Label htmlFor="select-all" className="font-medium cursor-pointer">
@@ -311,7 +296,7 @@ const Charts = () => {
               </div>
               <ScrollArea className="h-[250px]">
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {filteredBanks.map((bank) => (
+                  {banksData.map((bank) => (
                     <div key={bank.ticker} className="flex items-center space-x-2">
                       <Checkbox
                         id={bank.ticker}
@@ -339,7 +324,7 @@ const Charts = () => {
                   <div className="flex items-center space-x-2">
                     <Checkbox
                       id="select-all-reference"
-                      checked={referenceBanks.length === filteredBanks.length}
+                      checked={referenceBanks.length === banksData.length}
                       onCheckedChange={toggleSelectAllReference}
                     />
                     <Label htmlFor="select-all-reference" className="font-medium cursor-pointer">
@@ -349,7 +334,7 @@ const Charts = () => {
                 </div>
                 <ScrollArea className="h-[250px]">
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {filteredBanks.map((bank) => (
+                    {banksData.map((bank) => (
                       <div key={`ref-${bank.ticker}`} className="flex items-center space-x-2">
                         <Checkbox
                           id={`ref-${bank.ticker}`}

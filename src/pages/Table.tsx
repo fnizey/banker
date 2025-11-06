@@ -14,14 +14,8 @@ type SortDirection = 'asc' | 'desc';
 
 const Table = () => {
   const { banksData, loading, lastUpdated, fetchData } = useBankData();
-  const { selectedBankTicker } = useSearch();
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
-
-  // Filter banks based on search
-  const filteredBanks = selectedBankTicker 
-    ? banksData.filter(bank => bank.ticker === selectedBankTicker)
-    : banksData;
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -32,7 +26,7 @@ const Table = () => {
     }
   };
 
-  const sortedBanks = [...filteredBanks].sort((a, b) => {
+  const sortedBanks = [...banksData].sort((a, b) => {
     let aValue: string | number;
     let bValue: string | number;
 
@@ -70,13 +64,9 @@ const Table = () => {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              {selectedBankTicker 
-                ? `${filteredBanks[0]?.name || 'Bank'} - Detaljert tabell`
-                : '📊 Sparebank-dashboard – Oslo Børs'}
+              📊 Sparebank-dashboard – Oslo Børs
             </h1>
-            {selectedBankTicker && (
-              <p className="text-muted-foreground mt-2">Viser kun data for {filteredBanks[0]?.name}</p>
-            )}
+            <p className="text-muted-foreground mt-2">Fullstendig bankoversikt</p>
           </div>
           <Button onClick={fetchData} disabled={loading} className="shadow-lg hover:shadow-xl transition-shadow">
             <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
@@ -88,7 +78,7 @@ const Table = () => {
 
         <Card className="p-6 shadow-lg border-2 bg-gradient-to-br from-card via-card to-accent/5">
               <h2 className="text-2xl font-bold mb-4">
-                {selectedBankTicker ? `${filteredBanks[0]?.name} - Alle nøkkeltall` : 'Alle banker - oversikt'}
+                Alle banker - oversikt
               </h2>
               
               {loading ? (
