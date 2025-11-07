@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { BankData, Period } from '@/types/bank';
 import { Card } from '@/components/ui/card';
 import { PeriodSelector } from './PeriodSelector';
 import { TrendingUp, TrendingDown, Clock, DollarSign } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { fetchWeeklyData } from '@/services/stockService';
 
 interface BankDetailTabProps {
   bank: BankData;
@@ -10,6 +12,34 @@ interface BankDetailTabProps {
 
 export const BankDetailTab = ({ bank }: BankDetailTabProps) => {
   const [selectedPeriod, setSelectedPeriod] = useState<Period>('today');
+  const [chartData, setChartData] = useState<any[]>([]);
+  const [loadingChart, setLoadingChart] = useState(false);
+
+  useEffect(() => {
+    const loadChartData = async () => {
+      if (selectedPeriod === 'today') {
+        setChartData([]);
+        return;
+      }
+      
+      setLoadingChart(true);
+      try {
+        const data = await fetchWeeklyData(bank.ticker, selectedPeriod as 'month' | 'ytd' | 'year');
+        const formattedData = data.map(d => ({
+          date: d.date,
+          price: d.price
+        }));
+        setChartData(formattedData);
+      } catch (error) {
+        console.error('Error loading chart data:', error);
+        setChartData([]);
+      } finally {
+        setLoadingChart(false);
+      }
+    };
+
+    loadChartData();
+  }, [selectedPeriod, bank.ticker]);
 
   const getChangeForPeriod = (): number => {
     switch (selectedPeriod) {
@@ -104,6 +134,45 @@ export const BankDetailTab = ({ bank }: BankDetailTabProps) => {
           </div>
         </Card>
       </div>
+
+      {/* Price Chart */}
+      {selectedPeriod !== 'today' && (
+        <Card className="p-6 bg-gradient-to-br from-card via-card to-accent/5 border-2 shadow-lg">
+          <h3 className="text-xl font-bold mb-4">
+            Kursutvikling - {periodLabels[selectedPeriod]}
+          </h3>
+          {loadingChart ? (
+            <div className="text-center py-8 text-muted-foreground">Laster data...</div>
+          ) : chartData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis 
+                  label={{ value: 'Kurs (NOK)', angle: -90, position: 'insideLeft' }}
+                  domain={['auto', 'auto']}
+                />
+                <Tooltip 
+                  formatter={(value: number) => [`${value.toFixed(2)} NOK`, 'Kurs']}
+                  labelStyle={{ color: 'hsl(var(--foreground))' }}
+                  contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
+                />
+                <Legend />
+                <Line 
+                  type="monotone" 
+                  dataKey="price" 
+                  name={bank.name}
+                  stroke="hsl(var(--primary))"
+                  strokeWidth={2}
+                  dot={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">Ingen data tilgjengelig</div>
+          )}
+        </Card>
+      )}
 
       {/* Current Period Details */}
       <Card className="p-6 bg-gradient-to-br from-primary/5 to-accent/5 border-2 shadow-lg">

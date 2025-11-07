@@ -64,7 +64,7 @@ export const Dashboard = () => {
 
         <div className="grid lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
-            {loading && banksData.length === 0 && (
+            {loading && (
               <Card className="p-6 bg-gradient-to-br from-card via-card to-accent/5 shadow-lg border-2">
                 <div className="mt-4">
                   <div className="text-sm text-muted-foreground mb-2">
