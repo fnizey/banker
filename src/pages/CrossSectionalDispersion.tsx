@@ -25,13 +25,14 @@ const CrossSectionalDispersion = () => {
   const [bottomPerformers, setBottomPerformers] = useState<PerformerData[]>([]);
   const [loading, setLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [selectedDays, setSelectedDays] = useState<90 | 180 | 365>(90);
   const { toast } = useToast();
 
   const fetchDispersionData = async () => {
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('calculate-dispersion', {
-        body: { days: 90 }
+        body: { days: selectedDays }
       });
 
       if (error) throw error;
@@ -62,7 +63,7 @@ const CrossSectionalDispersion = () => {
 
   useEffect(() => {
     fetchDispersionData();
-  }, []);
+  }, [selectedDays]);
 
   const getInterpretation = (dispersion: number) => {
     if (dispersion < 0.4) {
@@ -100,10 +101,35 @@ const CrossSectionalDispersion = () => {
               Måler hvor spredt daglige avkastninger er på tvers av alle banker
             </p>
           </div>
-          <Button onClick={fetchDispersionData} disabled={loading} className="shadow-lg hover:shadow-xl transition-shadow">
-            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            Oppdater data
-          </Button>
+          <div className="flex gap-4 items-center">
+            <div className="flex gap-2">
+              <Button 
+                variant={selectedDays === 90 ? "default" : "outline"}
+                onClick={() => setSelectedDays(90)}
+                disabled={loading}
+              >
+                90 dager
+              </Button>
+              <Button 
+                variant={selectedDays === 180 ? "default" : "outline"}
+                onClick={() => setSelectedDays(180)}
+                disabled={loading}
+              >
+                180 dager
+              </Button>
+              <Button 
+                variant={selectedDays === 365 ? "default" : "outline"}
+                onClick={() => setSelectedDays(365)}
+                disabled={loading}
+              >
+                365 dager
+              </Button>
+            </div>
+            <Button onClick={fetchDispersionData} disabled={loading} className="shadow-lg hover:shadow-xl transition-shadow">
+              <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              Oppdater
+            </Button>
+          </div>
         </div>
 
         <div className="space-y-6">
@@ -129,7 +155,7 @@ const CrossSectionalDispersion = () => {
 
           {/* Dispersion Time Series Chart */}
           <Card className="p-6 shadow-lg border-2 bg-gradient-to-br from-card via-card to-accent/5">
-            <h2 className="text-2xl font-bold mb-4">Sektorspredningsindeks (90 dager)</h2>
+            <h2 className="text-2xl font-bold mb-4">Sektorspredningsindeks ({selectedDays} dager)</h2>
             {loading && dispersionData.length === 0 ? (
               <Skeleton className="h-[400px] w-full" />
             ) : (

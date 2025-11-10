@@ -13,6 +13,8 @@ import Charts from "./pages/Charts";
 import Reports from "./pages/Reports";
 import CrossSectionalDispersion from "./pages/CrossSectionalDispersion";
 import AbnormalVolume from "./pages/AbnormalVolume";
+import CapitalRotation from "./pages/CapitalRotation";
+import PerformanceBySize from "./pages/PerformanceBySize";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -41,8 +43,10 @@ const App = () => (
                       <Route path="/tabell" element={<Table />} />
                       <Route path="/grafer" element={<Charts />} />
                       <Route path="/rapporter" element={<Reports />} />
-                      <Route path="/dispersion" element={<CrossSectionalDispersion />} />
-                      <Route path="/abnormal-volume" element={<AbnormalVolume />} />
+            <Route path="/dispersion" element={<CrossSectionalDispersion />} />
+            <Route path="/rotation" element={<CapitalRotation />} />
+            <Route path="/performance" element={<PerformanceBySize />} />
+            <Route path="/abnormal-volume" element={<AbnormalVolume />} />
                       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                       <Route path="*" element={<NotFound />} />
                     </Routes>
