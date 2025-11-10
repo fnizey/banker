@@ -30,7 +30,7 @@ export const NewsFeed = () => {
         const parser = new DOMParser();
         const xml = parser.parseFromString(text, 'text/xml');
         
-        const items = Array.from(xml.querySelectorAll('item')).slice(0, 10);
+        const items = Array.from(xml.querySelectorAll('item')).slice(0, 50);
         const newsItems: NewsItem[] = items.map(item => ({
           title: item.querySelector('title')?.textContent || '',
           link: item.querySelector('link')?.textContent || '',
