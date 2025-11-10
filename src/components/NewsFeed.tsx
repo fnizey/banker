@@ -50,10 +50,10 @@ export const NewsFeed = () => {
 
     fetchNews();
     
-    // Oppdater automatisk hver 5. minutt
+    // Oppdater automatisk hvert minutt
     const interval = setInterval(() => {
       fetchNews();
-    }, 300000); // 5 minutter = 300000 ms
+    }, 60000); // 1 minutt = 60000 ms
 
     // Cleanup når komponenten unmountes
     return () => clearInterval(interval);
