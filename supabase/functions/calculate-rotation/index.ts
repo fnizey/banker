@@ -31,11 +31,36 @@ const BANKS = [
   { name: 'Bien Sparebank', ticker: 'BIEN.OL' },
 ];
 
+// Shares outstanding data (hardcoded)
+const SHARES_OUTSTANDING: Record<string, number> = {
+  'DNB.OL': 1600000000, // Estimated for DNB
+  'SB1NO.OL': 375460000,
+  'SBNOR.OL': 149805902,
+  'MING.OL': 144207760,
+  'SPOL.OL': 135860724,
+  'NONG.OL': 100398016,
+  'MORG.OL': 49623779,
+  'SPOG.OL': 20731183,
+  'HELG.OL': 26947021,
+  'ROGS.OL': 22997885,
+  'RING.OL': 15650405,
+  'SOAG.OL': 12387741,
+  'SNOR.OL': 9061837,
+  'HGSB.OL': 2250000,
+  'JAREN.OL': 4932523,
+  'AURG.OL': 4622601,
+  'SKUE.OL': 2278895,
+  'MELG.OL': 2776225,
+  'SOGN.OL': 632500,
+  'HSPG.OL': 687900,
+  'VVL.OL': 2203716,
+  'BIEN.OL': 5680198,
+};
+
 interface DailyData {
   date: string;
   close: number;
   volume: number;
-  sharesOutstanding: number;
 }
 
 async function fetchHistoricalData(ticker: string, days: number) {
@@ -62,13 +87,11 @@ async function fetchHistoricalData(ticker: string, days: number) {
   const timestamps = result.timestamp;
   const closes = result.indicators.quote[0].close;
   const volumes = result.indicators.quote[0].volume;
-  const sharesOutstanding = result.meta?.sharesOutstanding || 0;
   
   return timestamps.map((ts: number, i: number) => ({
     date: new Date(ts * 1000).toISOString().split('T')[0],
     close: closes[i],
     volume: volumes[i] || 0,
-    sharesOutstanding
   })).filter((d: DailyData) => d.close !== null && d.volume > 0);
 }
 
@@ -132,11 +155,16 @@ serve(async (req) => {
     // Categorize banks by market cap (using latest data)
     const categorizedBanks = validData.map(({ ticker, name, data }) => {
       const latestData = data[data.length - 1];
-      const marketCap = calculateMarketCap(latestData.close, latestData.sharesOutstanding);
+      const sharesOutstanding = SHARES_OUTSTANDING[ticker] || 0;
+      const marketCap = calculateMarketCap(latestData.close, sharesOutstanding);
       const category = categorizeBankBySize(marketCap);
+      
+      console.log(`${name} (${ticker}): Close=${latestData.close.toFixed(2)}, Shares=${(sharesOutstanding/1e6).toFixed(1)}M, MarketCap=${marketCap.toFixed(2)} mrd NOK → ${category}`);
       
       return { ticker, name, data, category, marketCap };
     });
+    
+    console.log(`Categories: Small=${categorizedBanks.filter(b => b.category === 'Small').length}, Mid=${categorizedBanks.filter(b => b.category === 'Mid').length}, Large=${categorizedBanks.filter(b => b.category === 'Large').length}`);
     
     // Get all unique dates
     const allDates = [...new Set(categorizedBanks.flatMap(b => b.data.map(d => d.date)))].sort();
