@@ -153,6 +153,29 @@ function calculateZScore(value: number, mean: number, stdDev: number): number {
   return (value - mean) / stdDev;
 }
 
+function calculatePercentile(values: number[], percentile: number): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  const index = (percentile / 100) * (sorted.length - 1);
+  const lower = Math.floor(index);
+  const upper = Math.ceil(index);
+  const weight = index - lower;
+  return sorted[lower] * (1 - weight) + sorted[upper] * weight;
+}
+
+function calculateMovingAverage(values: number[], windowSize: number): number[] {
+  const result: number[] = [];
+  for (let i = 0; i < values.length; i++) {
+    if (i < windowSize - 1) {
+      result.push(values[i]); // Not enough data, use current value
+    } else {
+      const window = values.slice(i - windowSize + 1, i + 1);
+      const avg = window.reduce((sum, val) => sum + val, 0) / windowSize;
+      result.push(avg);
+    }
+  }
+  return result;
+}
+
 // Calculate 30-day moving average of turnover for normalization
 function calculateNormalizedTurnover(data: DailyData[], windowSize: number = 30) {
   for (let i = 0; i < data.length; i++) {
@@ -285,8 +308,45 @@ serve(async (req) => {
       return { ...r, returnZ, turnoverZ, combinedRotation };
     });
     
+    // Calculate 10-day moving average (smooth)
+    const combinedRotations = rotationTimeSeriesWithZScore.map(r => r.combinedRotation);
+    const smoothRotations = calculateMovingAverage(combinedRotations, 10);
+    
+    // Calculate cumulative rotation
+    let cumulative = 0;
+    const cumulativeRotations = combinedRotations.map(val => {
+      cumulative += val;
+      return cumulative;
+    });
+    
+    // Calculate percentiles and std dev for thresholds
+    const p90 = calculatePercentile(cumulativeRotations, 90);
+    const p10 = calculatePercentile(cumulativeRotations, 10);
+    const meanCumulative = cumulativeRotations.reduce((a, b) => a + b, 0) / cumulativeRotations.length;
+    const stdDevCumulative = calculateStdDev(cumulativeRotations);
+    const upperStdDev = meanCumulative + stdDevCumulative;
+    const lowerStdDev = meanCumulative - stdDevCumulative;
+    
+    // Add all new metrics to time series
+    const enrichedTimeSeries = rotationTimeSeriesWithZScore.map((r, i) => ({
+      ...r,
+      smoothRotation: smoothRotations[i],
+      cumulativeRotation: cumulativeRotations[i],
+    }));
+    
     // Get current metrics (last date)
-    const currentMetrics = rotationTimeSeriesWithZScore[rotationTimeSeriesWithZScore.length - 1];
+    const currentMetrics = {
+      ...enrichedTimeSeries[enrichedTimeSeries.length - 1],
+      interpretation: enrichedTimeSeries[enrichedTimeSeries.length - 1].combinedRotation > 0 ? 'Risk-off' : 'Risk-on'
+    };
+    
+    const thresholds = {
+      p90,
+      p10,
+      upperStdDev,
+      lowerStdDev,
+      meanCumulative,
+    };
     
     // Get bank categorization for UI
     const banksByCategory = {
@@ -300,9 +360,10 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        rotationTimeSeries: rotationTimeSeriesWithZScore,
+        rotationTimeSeries: enrichedTimeSeries,
         currentMetrics,
-        banksByCategory
+        banksByCategory,
+        thresholds
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

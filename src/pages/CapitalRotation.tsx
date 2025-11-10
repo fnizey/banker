@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -12,6 +12,16 @@ interface RotationData {
   returnRotation: number;
   turnoverRotation: number;
   combinedRotation: number;
+  smoothRotation: number;
+  cumulativeRotation: number;
+}
+
+interface Thresholds {
+  p90: number;
+  p10: number;
+  upperStdDev: number;
+  lowerStdDev: number;
+  meanCumulative: number;
 }
 
 interface BankInfo {
@@ -28,6 +38,7 @@ interface BanksByCategory {
 const CapitalRotation = () => {
   const [rotationData, setRotationData] = useState<RotationData[]>([]);
   const [currentMetrics, setCurrentMetrics] = useState<any>(null);
+  const [thresholds, setThresholds] = useState<Thresholds | null>(null);
   const [banksByCategory, setBanksByCategory] = useState<BanksByCategory>({ Small: [], Mid: [], Large: [] });
   const [loading, setLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -43,6 +54,7 @@ const CapitalRotation = () => {
       if (data.success) {
         setRotationData(data.rotationTimeSeries);
         setCurrentMetrics(data.currentMetrics);
+        setThresholds(data.thresholds);
         setBanksByCategory(data.banksByCategory);
         setLastUpdated(new Date());
         
@@ -112,44 +124,53 @@ const CapitalRotation = () => {
         <div className="space-y-6">
           {/* Current Metrics Cards */}
           {currentMetrics && (
-            <div className="grid md:grid-cols-3 gap-4">
+            <div className="grid md:grid-cols-4 gap-4">
               <Card className="p-6 shadow-lg border-2 bg-gradient-to-br from-card to-primary/5">
                 <div className="text-sm font-medium text-muted-foreground mb-1">
-                  Avkastningsrotasjon
+                  Dagens Combined Rotation
                 </div>
                 <div className="text-3xl font-bold">
-                  {currentMetrics.returnRotation.toFixed(3)}%
+                  {currentMetrics.combinedRotation.toFixed(2)}
                 </div>
                 <div className="text-xs text-muted-foreground mt-2">
-                  Stor - Liten avkastning
+                  Z-score
                 </div>
               </Card>
 
               <Card className="p-6 shadow-lg border-2 bg-gradient-to-br from-card to-accent/5">
                 <div className="text-sm font-medium text-muted-foreground mb-1">
-                  Omsetningsrotasjon
+                  10-dagers snitt
                 </div>
                 <div className="text-3xl font-bold">
-                  {currentMetrics.turnoverRotation.toFixed(3)}
+                  {currentMetrics.smoothRotation.toFixed(2)}
                 </div>
                 <div className="text-xs text-muted-foreground mt-2">
-                  Normalisert omsetning (Stor - Liten)
+                  Glattet rotasjon
                 </div>
               </Card>
 
               <Card className="p-6 shadow-lg border-2 bg-gradient-to-br from-card to-success/5">
                 <div className="text-sm font-medium text-muted-foreground mb-1">
-                  Kombinert rotasjonsindeks
+                  Akkumulert nivå
                 </div>
                 <div className="text-3xl font-bold">
-                  {currentMetrics.combinedRotation.toFixed(2)}
+                  {currentMetrics.cumulativeRotation.toFixed(1)}
                 </div>
-                {combinedInterpretation && (
-                  <div className={`flex items-center gap-2 mt-2 text-xs ${combinedInterpretation.color}`}>
-                    {combinedInterpretation.icon}
-                    <span>{combinedInterpretation.text}</span>
-                  </div>
-                )}
+                <div className="text-xs text-muted-foreground mt-2">
+                  Kumulativ sum
+                </div>
+              </Card>
+
+              <Card className={`p-6 shadow-lg border-2 ${currentMetrics.interpretation === 'Risk-off' ? 'bg-gradient-to-br from-destructive/10 to-card' : 'bg-gradient-to-br from-success/10 to-card'}`}>
+                <div className="text-sm font-medium text-muted-foreground mb-1">
+                  Tolkning
+                </div>
+                <div className={`text-2xl font-bold ${currentMetrics.interpretation === 'Risk-off' ? 'text-destructive' : 'text-success'}`}>
+                  {currentMetrics.interpretation}
+                </div>
+                <div className="text-xs text-muted-foreground mt-2">
+                  {currentMetrics.interpretation === 'Risk-off' ? 'Defensiv posisjonering' : 'Risikovilje'}
+                </div>
               </Card>
             </div>
           )}
@@ -228,11 +249,11 @@ const CapitalRotation = () => {
             )}
           </Card>
 
-          {/* Combined Rotation Chart */}
-          <Card className="p-6 shadow-lg border-2 bg-gradient-to-br from-card via-card to-success/5">
-            <h2 className="text-2xl font-bold mb-4">Kombinert rotasjonsindeks (z-score)</h2>
+          {/* Return Rotation Chart */}
+          <Card className="p-6 shadow-lg border-2 bg-gradient-to-br from-card via-card to-primary/5">
+            <h2 className="text-2xl font-bold mb-4">Avkastningsrotasjon (Stor - Liten)</h2>
             <p className="text-sm text-muted-foreground mb-4">
-              Kombinerer avkastning og omsetning. Positiv → risk-off | Negativ → risk-on
+              Positiv verdi → kapital mot store banker (risk-off) | Negativ verdi → kapital mot små banker (risk-on)
             </p>
             {loading && rotationData.length === 0 ? (
               <Skeleton className="h-[300px] w-full" />
@@ -243,7 +264,7 @@ const CapitalRotation = () => {
                   <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" />
                   <YAxis stroke="hsl(var(--muted-foreground))" />
                   <Tooltip 
-                    formatter={(value: number) => [value.toFixed(2), 'Z-score']}
+                    formatter={(value: number) => [`${value.toFixed(3)}%`, 'Rotasjon']}
                     labelStyle={{ color: 'hsl(var(--foreground))' }}
                     contentStyle={{ 
                       backgroundColor: 'hsl(var(--card))', 
@@ -254,15 +275,168 @@ const CapitalRotation = () => {
                   <Legend />
                   <Line 
                     type="monotone" 
-                    dataKey="combinedRotation" 
-                    name="Kombinert rotasjon"
-                    stroke="hsl(var(--success))"
+                    dataKey="returnRotation" 
+                    name="Avkastningsrotasjon"
+                    stroke="hsl(var(--primary))"
                     strokeWidth={2}
                     dot={false}
                   />
                 </LineChart>
               </ResponsiveContainer>
             )}
+          </Card>
+
+          {/* Turnover Rotation Chart */}
+          <Card className="p-6 shadow-lg border-2 bg-gradient-to-br from-card via-card to-accent/5">
+            <h2 className="text-2xl font-bold mb-4">Omsetningsrotasjon (normalisert)</h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              Positiv verdi → store banker handles mer enn normalt | Negativ verdi → små banker handles mer enn normalt
+            </p>
+            {loading && rotationData.length === 0 ? (
+              <Skeleton className="h-[300px] w-full" />
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={rotationData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" />
+                  <YAxis stroke="hsl(var(--muted-foreground))" />
+                  <Tooltip 
+                    formatter={(value: number) => [value.toFixed(3), 'Rotasjon']}
+                    labelStyle={{ color: 'hsl(var(--foreground))' }}
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(var(--card))', 
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px'
+                    }}
+                  />
+                  <Legend />
+                  <Line 
+                    type="monotone" 
+                    dataKey="turnoverRotation" 
+                    name="Omsetningsrotasjon"
+                    stroke="hsl(var(--accent))"
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </Card>
+
+          {/* Smooth Combined Rotation Chart */}
+          <Card className="p-6 shadow-lg border-2 bg-gradient-to-br from-card via-card to-success/5">
+            <h2 className="text-2xl font-bold mb-4">Glattet kombinert rotasjon (10-dagers snitt)</h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              Positiv → risk-off (mot store) | Negativ → risk-on (mot små)
+            </p>
+            {loading && rotationData.length === 0 ? (
+              <Skeleton className="h-[300px] w-full" />
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={rotationData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" />
+                  <YAxis stroke="hsl(var(--muted-foreground))" />
+                  <Tooltip 
+                    formatter={(value: number) => [value.toFixed(2), 'Smooth']}
+                    labelStyle={{ color: 'hsl(var(--foreground))' }}
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(var(--card))', 
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px'
+                    }}
+                  />
+                  <Legend />
+                  <Line 
+                    type="monotone" 
+                    dataKey="smoothRotation" 
+                    name="10-dagers snitt"
+                    stroke="hsl(var(--primary))"
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </Card>
+
+          {/* Cumulative Rotation Chart */}
+          <Card className="p-6 shadow-lg border-2 bg-gradient-to-br from-card via-card to-accent/5">
+            <h2 className="text-2xl font-bold mb-4">Akkumulert rotasjon (Cumulative Rotation Index)</h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              Med null-linje, ±1σ, og 90./10. percentil som bånd
+            </p>
+            {loading && rotationData.length === 0 ? (
+              <Skeleton className="h-[300px] w-full" />
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={rotationData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" />
+                  <YAxis stroke="hsl(var(--muted-foreground))" />
+                  <Tooltip 
+                    formatter={(value: number) => [value.toFixed(1), 'Cumulative']}
+                    labelStyle={{ color: 'hsl(var(--foreground))' }}
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(var(--card))', 
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px'
+                    }}
+                  />
+                  <Legend />
+                  {thresholds && (
+                    <>
+                      <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" strokeDasharray="5 5" label="Null" />
+                      <ReferenceLine y={thresholds.upperStdDev} stroke="hsl(var(--warning))" strokeDasharray="3 3" label="+1σ" />
+                      <ReferenceLine y={thresholds.lowerStdDev} stroke="hsl(var(--warning))" strokeDasharray="3 3" label="-1σ" />
+                      <ReferenceLine y={thresholds.p90} stroke="hsl(var(--destructive))" strokeDasharray="2 2" label="90%" />
+                      <ReferenceLine y={thresholds.p10} stroke="hsl(var(--success))" strokeDasharray="2 2" label="10%" />
+                    </>
+                  )}
+                  <Line 
+                    type="monotone" 
+                    dataKey="cumulativeRotation" 
+                    name="Akkumulert rotasjon"
+                    stroke="hsl(var(--accent))"
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </Card>
+
+          {/* Interpretation Section */}
+          <Card className="p-6 shadow-lg border-2 bg-gradient-to-br from-muted/30 to-card">
+            <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+              🧠 Tolkning av rotasjonsindeksen
+            </h3>
+            <div className="space-y-3 text-sm">
+              <div className="flex gap-3">
+                <TrendingUp className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-semibold text-destructive">Positiv rotasjon:</span> Kapital mot store banker → risk-off / defensivt sentiment
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <TrendingDown className="w-5 h-5 text-success flex-shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-semibold text-success">Negativ rotasjon:</span> Kapital mot små banker → risk-on / risikovilje
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <ArrowUpRight className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-semibold text-warning">90. percentil:</span> Ekstrem defensivitet - markedet søker trygge havner
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <ArrowDownRight className="w-5 h-5 text-info flex-shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-semibold text-info">10. percentil:</span> Ekstrem risikovilje - kapital jakter avkastning
+                </div>
+              </div>
+            </div>
           </Card>
 
           {/* Bank Categories */}
