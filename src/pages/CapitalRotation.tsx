@@ -100,7 +100,7 @@ const CapitalRotation = () => {
               🔄 Kapitalrotasjon
             </h1>
             <p className="text-muted-foreground mt-2">
-              Måler kapitalflyt mellom store og små banker basert på avkastning og omsetning
+              Måler kapitalflyt mellom store og små banker basert på avkastning
             </p>
           </div>
           <Button onClick={fetchRotationData} disabled={loading} className="shadow-lg hover:shadow-xl transition-shadow">
@@ -112,7 +112,7 @@ const CapitalRotation = () => {
         <div className="space-y-6">
           {/* Current Metrics Cards */}
           {currentMetrics && (
-            <div className="grid md:grid-cols-3 gap-4">
+            <div className="grid md:grid-cols-2 gap-4">
               <Card className="p-6 shadow-lg border-2 bg-gradient-to-br from-card to-primary/5">
                 <div className="text-sm font-medium text-muted-foreground mb-1">
                   Avkastningsrotasjon
@@ -122,18 +122,6 @@ const CapitalRotation = () => {
                 </div>
                 <div className="text-xs text-muted-foreground mt-2">
                   Stor - Liten avkastning
-                </div>
-              </Card>
-
-              <Card className="p-6 shadow-lg border-2 bg-gradient-to-br from-card to-accent/5">
-                <div className="text-sm font-medium text-muted-foreground mb-1">
-                  Omsetningsrotasjon
-                </div>
-                <div className="text-3xl font-bold">
-                  {currentMetrics.turnoverRotation.toFixed(3)}
-                </div>
-                <div className="text-xs text-muted-foreground mt-2">
-                  Relativ omsetning
                 </div>
               </Card>
 
@@ -180,40 +168,6 @@ const CapitalRotation = () => {
                     dataKey="returnRotation" 
                     name="Avkastningsrotasjon"
                     stroke="hsl(var(--primary))"
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            )}
-          </Card>
-
-          {/* Turnover Rotation Chart */}
-          <Card className="p-6 shadow-lg border-2 bg-gradient-to-br from-card via-card to-accent/5">
-            <h2 className="text-2xl font-bold mb-4">Omsetningsrotasjon (Stor - Liten)</h2>
-            {loading && rotationData.length === 0 ? (
-              <Skeleton className="h-[300px] w-full" />
-            ) : (
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={rotationData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" />
-                  <YAxis stroke="hsl(var(--muted-foreground))" />
-                  <Tooltip 
-                    formatter={(value: number) => [value.toFixed(3), 'Rotasjon']}
-                    labelStyle={{ color: 'hsl(var(--foreground))' }}
-                    contentStyle={{ 
-                      backgroundColor: 'hsl(var(--card))', 
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '8px'
-                    }}
-                  />
-                  <Legend />
-                  <Line 
-                    type="monotone" 
-                    dataKey="turnoverRotation" 
-                    name="Omsetningsrotasjon"
-                    stroke="hsl(var(--accent))"
                     strokeWidth={2}
                     dot={false}
                   />
