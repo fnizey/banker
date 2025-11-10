@@ -49,6 +49,14 @@ export const NewsFeed = () => {
     };
 
     fetchNews();
+    
+    // Oppdater automatisk hver 5. minutt
+    const interval = setInterval(() => {
+      fetchNews();
+    }, 300000); // 5 minutter = 300000 ms
+
+    // Cleanup når komponenten unmountes
+    return () => clearInterval(interval);
   }, []);
 
   const formatDate = (dateString: string) => {
