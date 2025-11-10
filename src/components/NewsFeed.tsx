@@ -99,7 +99,7 @@ export const NewsFeed = () => {
     };
   };
 
-  // const sectorData = getSectorCounts(); // Midlertidig deaktivert
+  const sectorData = getSectorCounts();
 
   return (
     <Card className="p-6 bg-gradient-to-br from-card via-card/50 to-primary/10 shadow-lg border-border/50 hover:shadow-xl transition-all">
@@ -125,7 +125,25 @@ export const NewsFeed = () => {
         </div>
       ) : (
         <>
-          {/* Seksjonsoversikt midlertidig deaktivert */}
+          {sectorData.total > 0 && (
+            <div className="mb-4 p-4 rounded-xl border border-border/40 bg-accent/5">
+              <h3 className="text-sm font-semibold mb-3 text-foreground">Seksjonsoversikt siste 24t:</h3>
+              <div className="space-y-1.5">
+                {Object.entries(sectorData.counts)
+                  .sort(([, a], [, b]) => b - a)
+                  .map(([category, count]) => (
+                    <div key={category} className="flex justify-between items-center text-sm">
+                      <span className="text-muted-foreground">{category}:</span>
+                      <span className="font-medium text-foreground">{count}</span>
+                    </div>
+                  ))}
+                <div className="flex justify-between items-center text-sm pt-2 mt-2 border-t border-border/40">
+                  <span className="font-semibold text-foreground">Totalt:</span>
+                  <span className="font-semibold text-primary">{sectorData.total}</span>
+                </div>
+              </div>
+            </div>
+          )}
           
           <ScrollArea className="h-[420px] pr-4">
             <div className="space-y-3">
