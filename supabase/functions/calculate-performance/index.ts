@@ -31,30 +31,33 @@ const BANKS = [
   { name: 'Bien Sparebank', ticker: 'BIEN.OL' },
 ];
 
-// Shares outstanding data (hardcoded)
-const SHARES_OUTSTANDING: Record<string, number> = {
-  'DNB.OL': 1600000000, // Estimated for DNB
-  'SB1NO.OL': 375460000,
-  'SBNOR.OL': 149805902,
-  'MING.OL': 144207760,
-  'SPOL.OL': 135860724,
-  'NONG.OL': 100398016,
-  'MORG.OL': 49623779,
-  'SPOG.OL': 20731183,
-  'HELG.OL': 26947021,
-  'ROGS.OL': 22997885,
-  'RING.OL': 15650405,
-  'SOAG.OL': 12387741,
-  'SNOR.OL': 9061837,
-  'HGSB.OL': 2250000,
-  'JAREN.OL': 4932523,
-  'AURG.OL': 4622601,
-  'SKUE.OL': 2278895,
-  'MELG.OL': 2776225,
-  'SOGN.OL': 632500,
-  'HSPG.OL': 687900,
-  'VVL.OL': 2203716,
-  'BIEN.OL': 5680198,
+// Fixed bank categorization
+const BANK_CATEGORIES: Record<string, 'Small' | 'Mid' | 'Large'> = {
+  // Store banker
+  'DNB.OL': 'Large',
+  'SB1NO.OL': 'Large',
+  'SBNOR.OL': 'Large',
+  'MING.OL': 'Large',
+  'SPOL.OL': 'Large',
+  'NONG.OL': 'Large',
+  'MORG.OL': 'Large',
+  // Mellomstore banker
+  'SPOG.OL': 'Mid',
+  'HELG.OL': 'Mid',
+  'ROGS.OL': 'Mid',
+  'RING.OL': 'Mid',
+  'SOAG.OL': 'Mid',
+  'SNOR.OL': 'Mid',
+  // Små banker
+  'HGSB.OL': 'Small',
+  'JAREN.OL': 'Small',
+  'AURG.OL': 'Small',
+  'SKUE.OL': 'Small',
+  'MELG.OL': 'Small',
+  'SOGN.OL': 'Small',
+  'HSPG.OL': 'Small',
+  'VVL.OL': 'Small',
+  'BIEN.OL': 'Small',
 };
 
 interface DailyPrice {
@@ -90,16 +93,6 @@ async function fetchHistoricalPrices(ticker: string, days: number) {
     date: new Date(ts * 1000).toISOString().split('T')[0],
     close: closes[i],
   })).filter((d: DailyPrice) => d.close !== null);
-}
-
-function calculateMarketCap(close: number, sharesOutstanding: number): number {
-  return (close * sharesOutstanding) / 1e9; // in billion NOK
-}
-
-function categorizeBankBySize(marketCap: number): 'Small' | 'Mid' | 'Large' {
-  if (marketCap < 10) return 'Small';
-  if (marketCap < 50) return 'Mid';
-  return 'Large';
 }
 
 function calculateCumulativeReturn(prices: number[]): number[] {
@@ -139,14 +132,10 @@ serve(async (req) => {
     
     console.log(`Fetched data for ${validPrices.length} banks`);
     
-    // Categorize banks by market cap (using latest data)
+    // Categorize banks using fixed categories
     const categorizedBanks = validPrices.map(({ ticker, name, prices }) => {
-      const latestPrice = prices[prices.length - 1];
-      const sharesOutstanding = SHARES_OUTSTANDING[ticker] || 0;
-      const marketCap = calculateMarketCap(latestPrice.close, sharesOutstanding);
-      const category = categorizeBankBySize(marketCap);
-      
-      console.log(`${name} (${ticker}): Close=${latestPrice.close.toFixed(2)}, Shares=${(sharesOutstanding/1e6).toFixed(1)}M, MarketCap=${marketCap.toFixed(2)} mrd NOK → ${category}`);
+      const category = BANK_CATEGORIES[ticker] || 'Small';
+      console.log(`${name} (${ticker}): ${category}`);
       
       // Calculate cumulative returns for this bank
       const priceValues = prices.map(p => p.close);
@@ -156,8 +145,7 @@ serve(async (req) => {
         ticker, 
         name, 
         prices, 
-        category, 
-        marketCap,
+        category,
         cumulativeReturns,
         dates: prices.map(p => p.date)
       };
@@ -209,9 +197,9 @@ serve(async (req) => {
     
     // Get bank categorization for UI
     const banksByCategory = {
-      Small: categorizedBanks.filter(b => b.category === 'Small').map(b => ({ name: b.name, ticker: b.ticker, marketCap: b.marketCap })),
-      Mid: categorizedBanks.filter(b => b.category === 'Mid').map(b => ({ name: b.name, ticker: b.ticker, marketCap: b.marketCap })),
-      Large: categorizedBanks.filter(b => b.category === 'Large').map(b => ({ name: b.name, ticker: b.ticker, marketCap: b.marketCap }))
+      Small: categorizedBanks.filter(b => b.category === 'Small').map(b => ({ name: b.name, ticker: b.ticker })),
+      Mid: categorizedBanks.filter(b => b.category === 'Mid').map(b => ({ name: b.name, ticker: b.ticker })),
+      Large: categorizedBanks.filter(b => b.category === 'Large').map(b => ({ name: b.name, ticker: b.ticker }))
     };
     
     console.log('Performance calculation completed successfully');
