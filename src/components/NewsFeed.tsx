@@ -69,6 +69,30 @@ export const NewsFeed = () => {
     }
   };
 
+  const getSectorCounts = () => {
+    const now = new Date();
+    const last24Hours = news.filter(item => {
+      const itemDate = new Date(item.pubDate);
+      const diffMs = now.getTime() - itemDate.getTime();
+      const diffHours = diffMs / (1000 * 60 * 60);
+      return diffHours <= 24;
+    });
+
+    const categoryCounts: Record<string, number> = {};
+    last24Hours.forEach(item => {
+      if (item.category) {
+        categoryCounts[item.category] = (categoryCounts[item.category] || 0) + 1;
+      }
+    });
+
+    return {
+      counts: categoryCounts,
+      total: last24Hours.length
+    };
+  };
+
+  const sectorData = getSectorCounts();
+
   return (
     <Card className="p-6 bg-gradient-to-br from-card via-card/50 to-primary/10 shadow-lg border-border/50 hover:shadow-xl transition-all">
       <div className="flex items-center gap-3 mb-6">
@@ -92,41 +116,63 @@ export const NewsFeed = () => {
           ))}
         </div>
       ) : (
-        <ScrollArea className="h-[520px] pr-4">
-          <div className="space-y-3">
-            {news.map((item, index) => (
-              <a
-                key={index}
-                href={item.link}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block p-4 rounded-xl border border-border/40 bg-card/50 hover:border-primary/40 hover:bg-accent/10 hover:shadow-md transition-all duration-300 group"
-              >
-                <div className="flex items-start justify-between gap-3 mb-2">
-                  <h3 className="font-semibold text-sm leading-snug group-hover:text-primary transition-colors flex-1">
-                    {item.title}
-                  </h3>
-                  <ExternalLink className="h-4 w-4 text-muted-foreground/60 group-hover:text-primary transition-colors flex-shrink-0 mt-0.5" />
+        <>
+          {sectorData.total > 0 && (
+            <div className="mb-4 p-4 rounded-xl border border-border/40 bg-accent/5">
+              <h3 className="text-sm font-semibold mb-3 text-foreground">Seksjonsoversikt siste 24t:</h3>
+              <div className="space-y-1.5">
+                {Object.entries(sectorData.counts)
+                  .sort(([, a], [, b]) => b - a)
+                  .map(([category, count]) => (
+                    <div key={category} className="flex justify-between items-center text-sm">
+                      <span className="text-muted-foreground">{category}:</span>
+                      <span className="font-medium text-foreground">{count}</span>
+                    </div>
+                  ))}
+                <div className="flex justify-between items-center text-sm pt-2 mt-2 border-t border-border/40">
+                  <span className="font-semibold text-foreground">Totalt:</span>
+                  <span className="font-semibold text-primary">{sectorData.total}</span>
                 </div>
-                
-                <p className="text-xs text-muted-foreground/90 line-clamp-2 mb-3 leading-relaxed">
-                  {item.description}
-                </p>
-                
-                <div className="flex items-center gap-2 flex-wrap">
-                  {item.category && (
-                    <Badge variant="secondary" className="text-xs font-medium bg-primary/10 text-primary border-primary/20">
-                      {item.category}
-                    </Badge>
-                  )}
-                  <span className="text-xs text-muted-foreground/70">
-                    {formatDate(item.pubDate)}
-                  </span>
-                </div>
-              </a>
-            ))}
-          </div>
-        </ScrollArea>
+              </div>
+            </div>
+          )}
+          
+          <ScrollArea className="h-[420px] pr-4">
+            <div className="space-y-3">
+              {news.map((item, index) => (
+                <a
+                  key={index}
+                  href={item.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block p-4 rounded-xl border border-border/40 bg-card/50 hover:border-primary/40 hover:bg-accent/10 hover:shadow-md transition-all duration-300 group"
+                >
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <h3 className="font-semibold text-sm leading-snug group-hover:text-primary transition-colors flex-1">
+                      {item.title}
+                    </h3>
+                    <ExternalLink className="h-4 w-4 text-muted-foreground/60 group-hover:text-primary transition-colors flex-shrink-0 mt-0.5" />
+                  </div>
+                  
+                  <p className="text-xs text-muted-foreground/90 line-clamp-2 mb-3 leading-relaxed">
+                    {item.description}
+                  </p>
+                  
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {item.category && (
+                      <Badge variant="secondary" className="text-xs font-medium bg-primary/10 text-primary border-primary/20">
+                        {item.category}
+                      </Badge>
+                    )}
+                    <span className="text-xs text-muted-foreground/70">
+                      {formatDate(item.pubDate)}
+                    </span>
+                  </div>
+                </a>
+              ))}
+            </div>
+          </ScrollArea>
+        </>
       )}
     </Card>
   );
