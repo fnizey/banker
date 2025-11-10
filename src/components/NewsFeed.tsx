@@ -77,6 +77,17 @@ export const NewsFeed = () => {
     }
   };
 
+  const STATIC_CATEGORIES = [
+    'Bank',
+    'Forsikring',
+    'Fintech',
+    'Regulering',
+    'Kapitalforvaltning',
+    'Pensjon',
+    'Karriere',
+    'Nyheter'
+  ];
+
   const getSectorCounts = () => {
     const now = new Date();
     const last24Hours = news.filter(item => {
@@ -87,9 +98,16 @@ export const NewsFeed = () => {
     });
 
     const categoryCounts: Record<string, number> = {};
+    
+    // Initialize all static categories with 0
+    STATIC_CATEGORIES.forEach(category => {
+      categoryCounts[category] = 0;
+    });
+
+    // Count articles in each category
     last24Hours.forEach(item => {
-      if (item.category) {
-        categoryCounts[item.category] = (categoryCounts[item.category] || 0) + 1;
+      if (item.category && categoryCounts.hasOwnProperty(item.category)) {
+        categoryCounts[item.category]++;
       }
     });
 
@@ -129,14 +147,12 @@ export const NewsFeed = () => {
             <div className="mb-4 p-4 rounded-xl border border-border/40 bg-accent/5">
               <h3 className="text-sm font-semibold mb-3 text-foreground">Seksjonsoversikt siste 24t:</h3>
               <div className="space-y-1.5">
-                {Object.entries(sectorData.counts)
-                  .sort(([, a], [, b]) => b - a)
-                  .map(([category, count]) => (
-                    <div key={category} className="flex justify-between items-center text-sm">
-                      <span className="text-muted-foreground">{category}:</span>
-                      <span className="font-medium text-foreground">{count}</span>
-                    </div>
-                  ))}
+                {STATIC_CATEGORIES.map(category => (
+                  <div key={category} className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground">{category}:</span>
+                    <span className="font-medium text-foreground">{sectorData.counts[category]}</span>
+                  </div>
+                ))}
                 <div className="flex justify-between items-center text-sm pt-2 mt-2 border-t border-border/40">
                   <span className="font-semibold text-foreground">Totalt:</span>
                   <span className="font-semibold text-primary">{sectorData.total}</span>
