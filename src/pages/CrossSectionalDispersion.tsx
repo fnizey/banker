@@ -26,6 +26,7 @@ const CrossSectionalDispersion = () => {
   const [loading, setLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [selectedDays, setSelectedDays] = useState<90 | 180 | 365>(90);
+  const [isCumulative, setIsCumulative] = useState(false);
   const { toast } = useToast();
 
   const fetchDispersionData = async () => {
@@ -89,6 +90,21 @@ const CrossSectionalDispersion = () => {
 
   const interpretation = getInterpretation(currentDispersion);
 
+  const getCumulativeData = () => {
+    if (!isCumulative) return dispersionData;
+    
+    let cumulative = 0;
+    return dispersionData.map(item => {
+      cumulative += item.dispersion;
+      return {
+        date: item.date,
+        dispersion: cumulative
+      };
+    });
+  };
+
+  const chartData = getCumulativeData();
+
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
@@ -101,7 +117,23 @@ const CrossSectionalDispersion = () => {
               Måler hvor spredt daglige avkastninger er på tvers av alle banker
             </p>
           </div>
-          <div className="flex gap-4 items-center">
+          <div className="flex gap-4 items-center flex-wrap">
+            <div className="flex gap-2">
+              <Button 
+                variant={!isCumulative ? "default" : "outline"}
+                onClick={() => setIsCumulative(false)}
+                disabled={loading}
+              >
+                Vanlig
+              </Button>
+              <Button 
+                variant={isCumulative ? "default" : "outline"}
+                onClick={() => setIsCumulative(true)}
+                disabled={loading}
+              >
+                Kumulativ
+              </Button>
+            </div>
             <div className="flex gap-2">
               <Button 
                 variant={selectedDays === 90 ? "default" : "outline"}
@@ -155,20 +187,22 @@ const CrossSectionalDispersion = () => {
 
           {/* Dispersion Time Series Chart */}
           <Card className="p-6 shadow-lg border-2 bg-gradient-to-br from-card via-card to-accent/5">
-            <h2 className="text-2xl font-bold mb-4">Sektorspredningsindeks ({selectedDays} dager)</h2>
+            <h2 className="text-2xl font-bold mb-4">
+              {isCumulative ? 'Kumulativ sektorspredning' : 'Sektorspredningsindeks'} ({selectedDays} dager)
+            </h2>
             {loading && dispersionData.length === 0 ? (
               <Skeleton className="h-[400px] w-full" />
             ) : (
               <ResponsiveContainer width="100%" height={400}>
-                <LineChart data={dispersionData}>
+                <LineChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" />
                   <YAxis 
-                    label={{ value: 'Spredning (%)', angle: -90, position: 'insideLeft' }}
+                    label={{ value: isCumulative ? 'Kumulativ spredning (%)' : 'Spredning (%)', angle: -90, position: 'insideLeft' }}
                     stroke="hsl(var(--muted-foreground))"
                   />
                   <Tooltip 
-                    formatter={(value: number) => [`${value.toFixed(3)}%`, 'Spredning']}
+                    formatter={(value: number) => [`${value.toFixed(3)}%`, isCumulative ? 'Kumulativ spredning' : 'Spredning']}
                     labelStyle={{ color: 'hsl(var(--foreground))' }}
                     contentStyle={{ 
                       backgroundColor: 'hsl(var(--card))', 
@@ -180,7 +214,7 @@ const CrossSectionalDispersion = () => {
                   <Line 
                     type="monotone" 
                     dataKey="dispersion" 
-                    name="Spredningsindeks"
+                    name={isCumulative ? "Kumulativ spredning" : "Spredningsindeks"}
                     stroke="hsl(var(--primary))"
                     strokeWidth={2}
                     dot={false}
