@@ -31,6 +31,32 @@ const BANKS = [
   { name: 'Bien Sparebank', ticker: 'BIEN.OL' },
 ];
 
+// Shares outstanding data (hardcoded)
+const SHARES_OUTSTANDING: Record<string, number> = {
+  'DNB.OL': 1600000000,
+  'SB1NO.OL': 375460000,
+  'SBNOR.OL': 149805902,
+  'MING.OL': 144207760,
+  'SPOL.OL': 135860724,
+  'NONG.OL': 100398016,
+  'MORG.OL': 49623779,
+  'SPOG.OL': 20731183,
+  'HELG.OL': 26947021,
+  'ROGS.OL': 22997885,
+  'RING.OL': 15650405,
+  'SOAG.OL': 12387741,
+  'SNOR.OL': 9061837,
+  'HGSB.OL': 2250000,
+  'JAREN.OL': 4932523,
+  'AURG.OL': 4622601,
+  'SKUE.OL': 2278895,
+  'MELG.OL': 2776225,
+  'SOGN.OL': 632500,
+  'HSPG.OL': 687900,
+  'VVL.OL': 2203716,
+  'BIEN.OL': 5680198,
+};
+
 // Fixed bank categorization
 const BANK_CATEGORIES: Record<string, 'Small' | 'Mid' | 'Large'> = {
   // Store banker
@@ -64,6 +90,9 @@ interface DailyData {
   date: string;
   close: number;
   volume: number;
+  marketCap: number;
+  turnover: number;
+  turnoverNorm?: number;
 }
 
 async function fetchHistoricalData(ticker: string, days: number) {
@@ -90,21 +119,26 @@ async function fetchHistoricalData(ticker: string, days: number) {
   const timestamps = result.timestamp;
   const closes = result.indicators.quote[0].close;
   const volumes = result.indicators.quote[0].volume;
+  const sharesOutstanding = SHARES_OUTSTANDING[ticker] || 0;
   
-  return timestamps.map((ts: number, i: number) => ({
-    date: new Date(ts * 1000).toISOString().split('T')[0],
-    close: closes[i],
-    volume: volumes[i] || 0,
-  })).filter((d: DailyData) => d.close !== null && d.volume > 0);
+  return timestamps.map((ts: number, i: number) => {
+    const close = closes[i];
+    const volume = volumes[i] || 0;
+    const marketCap = (close * sharesOutstanding) / 1e9; // in billion NOK
+    const turnover = marketCap > 0 ? (close * volume) / (marketCap * 1e9) : 0;
+    
+    return {
+      date: new Date(ts * 1000).toISOString().split('T')[0],
+      close,
+      volume,
+      marketCap,
+      turnover,
+    };
+  }).filter((d: DailyData) => d.close !== null && d.volume > 0);
 }
 
 function calculateDailyReturn(current: number, previous: number): number {
   return ((current - previous) / previous) * 100;
-}
-
-function calculateTurnover(close: number, volume: number): number {
-  const turnoverValue = close * volume;
-  return turnoverValue; // Just return the turnover value
 }
 
 function calculateStdDev(values: number[]): number {
@@ -117,6 +151,21 @@ function calculateStdDev(values: number[]): number {
 function calculateZScore(value: number, mean: number, stdDev: number): number {
   if (stdDev === 0) return 0;
   return (value - mean) / stdDev;
+}
+
+// Calculate 30-day moving average of turnover for normalization
+function calculateNormalizedTurnover(data: DailyData[], windowSize: number = 30) {
+  for (let i = 0; i < data.length; i++) {
+    if (i < windowSize - 1) {
+      data[i].turnoverNorm = 1; // Not enough data, use neutral value
+      continue;
+    }
+    
+    const window = data.slice(i - windowSize + 1, i + 1);
+    const avgTurnover = window.reduce((sum, d) => sum + d.turnover, 0) / windowSize;
+    
+    data[i].turnoverNorm = avgTurnover > 0 ? data[i].turnover / avgTurnover : 1;
+  }
 }
 
 serve(async (req) => {
@@ -145,6 +194,11 @@ serve(async (req) => {
     
     console.log(`Fetched data for ${validData.length} banks`);
     
+    // Calculate normalized turnover for each bank
+    for (const bank of validData) {
+      calculateNormalizedTurnover(bank.data);
+    }
+    
     // Categorize banks using fixed categories
     const categorizedBanks = validData.map(({ ticker, name, data }) => {
       const category = BANK_CATEGORIES[ticker] || 'Small';
@@ -166,50 +220,49 @@ serve(async (req) => {
       const date = allDates[i];
       const prevDate = allDates[i - 1];
       
-      const categoriesData: Record<string, { returns: number[], turnovers: number[] }> = {
-        Small: { returns: [], turnovers: [] },
-        Mid: { returns: [], turnovers: [] },
-        Large: { returns: [], turnovers: [] }
+      const categoriesData: Record<string, { returns: number[], turnoverNorms: number[] }> = {
+        Small: { returns: [], turnoverNorms: [] },
+        Mid: { returns: [], turnoverNorms: [] },
+        Large: { returns: [], turnoverNorms: [] }
       };
       
-      // Calculate returns and turnovers for each bank
+      // Calculate returns and normalized turnovers for each bank
       for (const bank of categorizedBanks) {
         const currentDay = bank.data.find(d => d.date === date);
         const previousDay = bank.data.find(d => d.date === prevDate);
         
-        if (currentDay && previousDay) {
+        if (currentDay && previousDay && currentDay.turnoverNorm !== undefined) {
           const dailyReturn = calculateDailyReturn(currentDay.close, previousDay.close);
-          const turnover = calculateTurnover(currentDay.close, currentDay.volume);
           
           categoriesData[bank.category].returns.push(dailyReturn);
-          categoriesData[bank.category].turnovers.push(turnover);
+          categoriesData[bank.category].turnoverNorms.push(currentDay.turnoverNorm);
         }
       }
       
-      // Calculate average return and turnover for each category
+      // Calculate average return and turnover norm for each category
       const avgReturns: Record<string, number> = {};
-      const avgTurnovers: Record<string, number> = {};
+      const avgTurnoverNorms: Record<string, number> = {};
       
       for (const [category, data] of Object.entries(categoriesData)) {
         if (data.returns.length > 0) {
           avgReturns[category] = data.returns.reduce((a, b) => a + b, 0) / data.returns.length;
-          avgTurnovers[category] = data.turnovers.reduce((a, b) => a + b, 0) / data.turnovers.length;
+          avgTurnoverNorms[category] = data.turnoverNorms.reduce((a, b) => a + b, 0) / data.turnoverNorms.length;
         } else {
           avgReturns[category] = 0;
-          avgTurnovers[category] = 0;
+          avgTurnoverNorms[category] = 1;
         }
       }
       
       // Calculate rotation metrics
       const returnRotation = avgReturns['Large'] - avgReturns['Small'];
-      const turnoverRotation = avgTurnovers['Large'] - avgTurnovers['Small'];
+      const turnoverRotation = avgTurnoverNorms['Large'] - avgTurnoverNorms['Small'];
       
       rotationTimeSeries.push({
         date,
         returnRotation,
         turnoverRotation,
         avgReturns,
-        avgTurnovers
+        avgTurnoverNorms
       });
     }
     
@@ -223,13 +276,13 @@ serve(async (req) => {
     const meanTurnoverRot = turnoverRotations.reduce((a, b) => a + b, 0) / turnoverRotations.length;
     const stdDevTurnoverRot = calculateStdDev(turnoverRotations);
     
-    // Add combined rotation z-score
+    // Add combined rotation z-score (0.5 * z(return) + 0.5 * z(turnover))
     const rotationTimeSeriesWithZScore = rotationTimeSeries.map(r => {
       const returnZ = calculateZScore(r.returnRotation, meanReturnRot, stdDevReturnRot);
       const turnoverZ = calculateZScore(r.turnoverRotation, meanTurnoverRot, stdDevTurnoverRot);
-      const combinedRotation = returnZ + turnoverZ;
+      const combinedRotation = 0.5 * returnZ + 0.5 * turnoverZ;
       
-      return { ...r, combinedRotation };
+      return { ...r, returnZ, turnoverZ, combinedRotation };
     });
     
     // Get current metrics (last date)
