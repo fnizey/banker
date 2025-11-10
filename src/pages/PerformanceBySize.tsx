@@ -98,10 +98,31 @@ const PerformanceBySize = () => {
         return performanceData;
     }
 
-    return performanceData.filter(d => new Date(d.date) >= startDate);
+    const filtered = performanceData.filter(d => new Date(d.date) >= startDate);
+    
+    // Re-base the cumulative returns to start from 0 at the beginning of the selected period
+    if (filtered.length === 0) return [];
+    
+    const firstValues = {
+      Small: filtered[0].Small,
+      Mid: filtered[0].Mid,
+      Large: filtered[0].Large,
+    };
+    
+    return filtered.map(d => ({
+      ...d,
+      Small: d.Small - firstValues.Small,
+      Mid: d.Mid - firstValues.Mid,
+      Large: d.Large - firstValues.Large,
+    }));
   };
 
   const filteredData = getFilteredData();
+  
+  // Calculate current performance from filtered data
+  const filteredCurrentPerformance = filteredData.length > 0 
+    ? filteredData[filteredData.length - 1]
+    : null;
 
   const getPeriodLabel = () => {
     switch (selectedPeriod) {
@@ -206,7 +227,7 @@ const PerformanceBySize = () => {
           </Card>
 
           {/* Current Performance Cards */}
-          {currentPerformance && (
+          {filteredCurrentPerformance && (
             <div className="grid md:grid-cols-3 gap-4">
               <Card className="p-6 shadow-lg border-2 bg-gradient-to-br from-primary/5 to-card">
                 <div className="flex items-center gap-2 mb-2">
@@ -216,10 +237,10 @@ const PerformanceBySize = () => {
                   </div>
                 </div>
                 <div className="text-3xl font-bold">
-                  {currentPerformance.Small.toFixed(2)}%
+                  {filteredCurrentPerformance.Small.toFixed(2)}%
                 </div>
                 <div className="text-xs text-muted-foreground mt-2">
-                  Totalt siden start
+                  {getPeriodLabel()}
                 </div>
               </Card>
 
@@ -231,10 +252,10 @@ const PerformanceBySize = () => {
                   </div>
                 </div>
                 <div className="text-3xl font-bold">
-                  {currentPerformance.Mid.toFixed(2)}%
+                  {filteredCurrentPerformance.Mid.toFixed(2)}%
                 </div>
                 <div className="text-xs text-muted-foreground mt-2">
-                  Totalt siden start
+                  {getPeriodLabel()}
                 </div>
               </Card>
 
@@ -246,10 +267,10 @@ const PerformanceBySize = () => {
                   </div>
                 </div>
                 <div className="text-3xl font-bold">
-                  {currentPerformance.Large.toFixed(2)}%
+                  {filteredCurrentPerformance.Large.toFixed(2)}%
                 </div>
                 <div className="text-xs text-muted-foreground mt-2">
-                  Totalt siden start
+                  {getPeriodLabel()}
                 </div>
               </Card>
             </div>
