@@ -18,7 +18,6 @@ interface PerformanceData {
 interface BankInfo {
   name: string;
   ticker: string;
-  marketCap: number;
 }
 
 interface BanksByCategory {

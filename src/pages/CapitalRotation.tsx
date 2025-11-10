@@ -17,7 +17,6 @@ interface RotationData {
 interface BankInfo {
   name: string;
   ticker: string;
-  marketCap: number;
 }
 
 interface BanksByCategory {
@@ -268,7 +267,7 @@ const CapitalRotation = () => {
                 {banksByCategory.Small.map((bank) => (
                   <div key={bank.ticker} className="flex justify-between text-sm p-2 bg-card rounded border">
                     <span className="font-medium">{bank.name}</span>
-                    <span className="text-muted-foreground">{bank.marketCap.toFixed(1)} mrd</span>
+                    <span className="text-muted-foreground">{bank.ticker}</span>
                   </div>
                 ))}
               </div>
@@ -283,7 +282,7 @@ const CapitalRotation = () => {
                 {banksByCategory.Mid.map((bank) => (
                   <div key={bank.ticker} className="flex justify-between text-sm p-2 bg-card rounded border">
                     <span className="font-medium">{bank.name}</span>
-                    <span className="text-muted-foreground">{bank.marketCap.toFixed(1)} mrd</span>
+                    <span className="text-muted-foreground">{bank.ticker}</span>
                   </div>
                 ))}
               </div>
@@ -298,7 +297,7 @@ const CapitalRotation = () => {
                 {banksByCategory.Large.map((bank) => (
                   <div key={bank.ticker} className="flex justify-between text-sm p-2 bg-card rounded border">
                     <span className="font-medium">{bank.name}</span>
-                    <span className="text-muted-foreground">{bank.marketCap.toFixed(1)} mrd</span>
+                    <span className="text-muted-foreground">{bank.ticker}</span>
                   </div>
                 ))}
               </div>
