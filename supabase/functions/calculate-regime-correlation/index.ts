@@ -219,13 +219,21 @@ serve(async (req) => {
       }
     }
 
-    // Find common dates
-    const dateSet = new Set(validBanks[0].data.slice(60).map(d => d.date));
-    for (const bank of validBanks.slice(1)) {
-      const bankDates = new Set(bank.data.slice(60).map(d => d.date));
-      dateSet.forEach(d => { if (!bankDates.has(d)) dateSet.delete(d); });
+    // Build common dates with 80% threshold (at least 18 of 22 banks)
+    const dateCounts = new Map<string, number>();
+    for (const bank of validBanks) {
+      for (const d of bank.data.slice(60)) {
+        dateCounts.set(d.date, (dateCounts.get(d.date) || 0) + 1);
+      }
     }
-    const commonDates = Array.from(dateSet).sort();
+
+    const minBanks = Math.floor(validBanks.length * 0.8);
+    const commonDates = Array.from(dateCounts.entries())
+      .filter(([_, count]) => count >= minBanks)
+      .map(([date, _]) => date)
+      .sort();
+
+    console.log(`Valid banks: ${validBanks.length}, Common dates: ${commonDates.length}`);
 
     const results: any[] = [];
 
@@ -233,44 +241,60 @@ serve(async (req) => {
     for (let i = 60; i < commonDates.length; i++) {
       const date = commonDates[i];
       
-      // Get returns for all banks for this date
-      const dayReturns = validBanks.map(bank => {
-        const idx = bank.data.findIndex(d => d.date === date);
-        return idx >= 0 ? bank.data[idx].return || 0 : 0;
-      });
+      // Get returns for banks that have data this date
+      const dayReturns = validBanks
+        .map(bank => {
+          const idx = bank.data.findIndex(d => d.date === date);
+          return idx >= 0 && bank.data[idx].return != null ? bank.data[idx].return : null;
+        })
+        .filter(r => r !== null) as number[];
 
-      // Get turnover norms
-      const dayTurnoverNorms = validBanks.map(bank => {
-        const idx = bank.data.findIndex(d => d.date === date);
-        return idx >= 0 ? bank.data[idx].turnoverNorm || 1 : 1;
-      });
+      if (dayReturns.length < 5) continue; // Skip if too few banks have data
 
-      // Rolling 60-day returns matrix for PCA
-      const returnsMatrix: number[][] = [];
+      // Get turnover norms for banks with data
+      const dayTurnoverNorms = validBanks
+        .map(bank => {
+          const idx = bank.data.findIndex(d => d.date === date);
+          return idx >= 0 && bank.data[idx].turnoverNorm != null ? bank.data[idx].turnoverNorm : null;
+        })
+        .filter(t => t !== null) as number[];
+
+      // Rolling 60-day returns matrix for PCA - only banks with complete history
       const last60Dates = commonDates.slice(Math.max(0, i - 60), i);
-      for (const bank of validBanks) {
+      const banksForPCA = validBanks.filter(bank => {
+        return last60Dates.every(d => bank.data.some(dd => dd.date === d && dd.return != null));
+      });
+
+      const returnsMatrix: number[][] = [];
+      for (const bank of banksForPCA) {
         const bankReturns = last60Dates.map(d => {
-          const idx = bank.data.findIndex(dd => dd.date === d);
-          return idx >= 0 ? bank.data[idx].return || 0 : 0;
+          const item = bank.data.find(dd => dd.date === d);
+          return item?.return || 0;
         });
         returnsMatrix.push(bankReturns);
       }
 
       // PCA
-      const { lambda1, lambda2, cc } = calculatePCA(returnsMatrix);
+      const { lambda1, lambda2, cc } = returnsMatrix.length >= 5 
+        ? calculatePCA(returnsMatrix) 
+        : { lambda1: 0, lambda2: 0, cc: 0 };
 
-      // XCI (Cross-Sectional Correlation Index) - average pairwise correlation over last 20 days
+      // XCI - only use banks with full 20-day history
       const last20Dates = commonDates.slice(Math.max(0, i - 20), i);
       const correlations: number[] = [];
-      for (let j = 0; j < validBanks.length; j++) {
-        for (let k = j + 1; k < validBanks.length; k++) {
+      const banksWithFullHistory = validBanks.filter(bank => {
+        return last20Dates.every(d => bank.data.some(dd => dd.date === d && dd.return != null));
+      });
+
+      for (let j = 0; j < banksWithFullHistory.length; j++) {
+        for (let k = j + 1; k < banksWithFullHistory.length; k++) {
           const returns1 = last20Dates.map(d => {
-            const idx = validBanks[j].data.findIndex(dd => dd.date === d);
-            return idx >= 0 ? validBanks[j].data[idx].return || 0 : 0;
+            const item = banksWithFullHistory[j].data.find(dd => dd.date === d);
+            return item?.return || 0;
           });
           const returns2 = last20Dates.map(d => {
-            const idx = validBanks[k].data.findIndex(dd => dd.date === d);
-            return idx >= 0 ? validBanks[k].data[idx].return || 0 : 0;
+            const item = banksWithFullHistory[k].data.find(dd => dd.date === d);
+            return item?.return || 0;
           });
           correlations.push(calculateCorrelation(returns1, returns2));
         }
