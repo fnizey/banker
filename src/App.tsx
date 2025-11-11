@@ -15,6 +15,9 @@ import CrossSectionalDispersion from "./pages/CrossSectionalDispersion";
 import AbnormalVolume from "./pages/AbnormalVolume";
 import CapitalRotation from "./pages/CapitalRotation";
 import PerformanceBySize from "./pages/PerformanceBySize";
+import VolatilityDivergence from "./pages/VolatilityDivergence";
+import LiquidityReturnSkew from "./pages/LiquidityReturnSkew";
+import SmartMoneyFlow from "./pages/SmartMoneyFlow";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -47,6 +50,9 @@ const App = () => (
             <Route path="/rotation" element={<CapitalRotation />} />
             <Route path="/performance" element={<PerformanceBySize />} />
             <Route path="/abnormal-volume" element={<AbnormalVolume />} />
+            <Route path="/vdi" element={<VolatilityDivergence />} />
+            <Route path="/lars" element={<LiquidityReturnSkew />} />
+            <Route path="/smfi" element={<SmartMoneyFlow />} />
                       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                       <Route path="*" element={<NotFound />} />
                     </Routes>

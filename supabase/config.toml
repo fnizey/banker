@@ -2,3 +2,12 @@ project_id = "jyytqtahbslasgslkzwq"
 
 [functions.fetch-financial-data]
 verify_jwt = false
+
+[functions.calculate-vdi]
+verify_jwt = false
+
+[functions.calculate-lars]
+verify_jwt = false
+
+[functions.calculate-smfi]
+verify_jwt = false

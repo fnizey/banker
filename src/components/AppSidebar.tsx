@@ -25,6 +25,9 @@ const analysisItems = [
   { title: "Kapitalrotasjon", url: "/rotation", icon: TrendingUp },
   { title: "Relativ Ytelse", url: "/performance", icon: LineChart },
   { title: "Abnormal Volume", url: "/abnormal-volume", icon: Bell },
+  { title: "VDI", url: "/vdi", icon: TrendingUp },
+  { title: "LARS", url: "/lars", icon: TrendingUp },
+  { title: "SMFI", url: "/smfi", icon: TrendingUp },
 ];
 
 export function AppSidebar() {
