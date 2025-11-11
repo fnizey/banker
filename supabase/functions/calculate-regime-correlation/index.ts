@@ -219,10 +219,10 @@ serve(async (req) => {
       }
     }
 
-    // Build common dates with 80% threshold (at least 18 of 22 banks)
+    // Build common dates with 80% threshold - use ALL data for overlap detection
     const dateCounts = new Map<string, number>();
     for (const bank of validBanks) {
-      for (const d of bank.data.slice(60)) {
+      for (const d of bank.data) {  // Use all data, don't slice
         dateCounts.set(d.date, (dateCounts.get(d.date) || 0) + 1);
       }
     }
@@ -233,7 +233,7 @@ serve(async (req) => {
       .map(([date, _]) => date)
       .sort();
 
-    console.log(`Valid banks: ${validBanks.length}, Common dates: ${commonDates.length}`);
+    console.log(`Valid banks: ${validBanks.length}, Common dates: ${commonDates.length}, minBanks: ${minBanks}`);
 
     const results: any[] = [];
 
