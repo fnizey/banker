@@ -21,6 +21,7 @@ const mainItems = [
 ];
 
 const analysisItems = [
+  { title: "SSI", url: "/ssi", icon: TrendingUp },
   { title: "Cross-Sectional Dispersion", url: "/dispersion", icon: TrendingUp },
   { title: "Kapitalrotasjon", url: "/rotation", icon: TrendingUp },
   { title: "Relativ Ytelse", url: "/performance", icon: LineChart },

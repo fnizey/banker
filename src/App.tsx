@@ -18,6 +18,7 @@ import PerformanceBySize from "./pages/PerformanceBySize";
 import VolatilityDivergence from "./pages/VolatilityDivergence";
 import LiquidityReturnSkew from "./pages/LiquidityReturnSkew";
 import SmartMoneyFlow from "./pages/SmartMoneyFlow";
+import SectorSentimentIndex from "./pages/SectorSentimentIndex";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -53,6 +54,7 @@ const App = () => (
             <Route path="/vdi" element={<VolatilityDivergence />} />
             <Route path="/lars" element={<LiquidityReturnSkew />} />
             <Route path="/smfi" element={<SmartMoneyFlow />} />
+            <Route path="/ssi" element={<SectorSentimentIndex />} />
                       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                       <Route path="*" element={<NotFound />} />
                     </Routes>
