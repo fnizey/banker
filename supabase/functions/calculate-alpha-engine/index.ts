@@ -101,43 +101,44 @@ interface BankData {
 async function fetchHistoricalData(ticker: string, days: number): Promise<DailyData[]> {
   const endDate = Math.floor(Date.now() / 1000);
   const startDate = endDate - (days * 24 * 60 * 60);
-
-  const url = `https://query1.finance.yahoo.com/v7/finance/download/${ticker}?period1=${startDate}&period2=${endDate}&interval=1d&events=history`;
+  
+  const url = `https://corsproxy.io/?https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?period1=${startDate}&period2=${endDate}&interval=1d`;
   
   console.log(`Fetching data for ${ticker}`);
   
   try {
-    const response = await fetch(url);
+    const response = await fetch(url, {
+      headers: { 'Accept': 'application/json' }
+    });
+    
     if (!response.ok) {
       console.error(`Failed to fetch ${ticker}: ${response.status}`);
       return [];
     }
     
-    const csvText = await response.text();
-    const lines = csvText.trim().split('\n');
+    const data = await response.json();
+    const result = data?.chart?.result?.[0];
     
-    if (lines.length < 2) {
-      console.error(`No data for ${ticker}`);
+    if (!result || !result.timestamp) {
       return [];
     }
     
-    const data: DailyData[] = [];
-    for (let i = 1; i < lines.length; i++) {
-      const cols = lines[i].split(',');
-      if (cols.length >= 6) {
-        const close = parseFloat(cols[4]);
-        const volume = parseFloat(cols[6]);
-        if (!isNaN(close) && !isNaN(volume) && close > 0) {
-          data.push({
-            date: cols[0],
-            close,
-            volume,
-          });
-        }
+    const timestamps = result.timestamp;
+    const closes = result.indicators.quote[0].close;
+    const volumes = result.indicators.quote[0].volume;
+    
+    const dailyData: DailyData[] = [];
+    for (let i = 0; i < timestamps.length; i++) {
+      const close = closes[i];
+      const volume = volumes[i] || 0;
+      
+      if (close != null && !isNaN(close) && close > 0) {
+        const date = new Date(timestamps[i] * 1000).toISOString().split('T')[0];
+        dailyData.push({ date, close, volume });
       }
     }
     
-    return data.sort((a, b) => a.date.localeCompare(b.date));
+    return dailyData.sort((a, b) => a.date.localeCompare(b.date));
   } catch (error) {
     console.error(`Error fetching ${ticker}:`, error);
     return [];
