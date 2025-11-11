@@ -23,3 +23,12 @@ verify_jwt = false
 
 [functions.calculate-performance]
 verify_jwt = false
+
+[functions.calculate-alpha-engine]
+verify_jwt = false
+
+[functions.calculate-outlier-radar]
+verify_jwt = false
+
+[functions.calculate-regime-correlation]
+verify_jwt = false
