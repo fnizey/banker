@@ -9,5 +9,8 @@ verify_jwt = false
 [functions.calculate-lars]
 verify_jwt = false
 
+[functions.calculate-rotation]
+verify_jwt = false
+
 [functions.calculate-smfi]
 verify_jwt = false
