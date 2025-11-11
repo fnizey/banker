@@ -17,3 +17,9 @@ verify_jwt = false
 
 [functions.calculate-ssi]
 verify_jwt = false
+
+[functions.calculate-dispersion]
+verify_jwt = false
+
+[functions.calculate-performance]
+verify_jwt = false
