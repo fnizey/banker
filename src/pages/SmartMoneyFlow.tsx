@@ -9,6 +9,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 interface SMFIData {
   date: string;
   smfi: number;
+  cumulativeSMFI: number;
   rotationZScore: number;
   vdiZScore: number;
   larsZScore: number;
@@ -35,6 +36,7 @@ const SmartMoneyFlow = () => {
   const [statistics, setStatistics] = useState<SMFIResponse['statistics'] | null>(null);
   const [loading, setLoading] = useState(false);
   const [selectedDays, setSelectedDays] = useState<30 | 90 | 180 | 365>(90);
+  const [isCumulative, setIsCumulative] = useState(true);
   const { toast } = useToast();
 
   const fetchSMFIData = async () => {
@@ -72,6 +74,14 @@ const SmartMoneyFlow = () => {
     if (sentiment.includes('Risk-on') || sentiment.includes('Offensiv')) return 'text-green-500';
     return 'text-blue-500';
   };
+
+  const chartData = smfiData.map(d => ({
+    date: d.date,
+    value: isCumulative ? d.cumulativeSMFI : d.smfi,
+    rotationZScore: d.rotationZScore,
+    vdiZScore: d.vdiZScore,
+    larsZScore: d.larsZScore,
+  }));
 
   return (
     <div className="min-h-screen bg-background">
@@ -165,20 +175,40 @@ const SmartMoneyFlow = () => {
 
         {/* SMFI Time Series Chart */}
         <Card className="p-6 shadow-lg border-2 bg-gradient-to-br from-card via-card to-accent/5 mb-8">
-          <h2 className="text-2xl font-bold mb-4">SMFI over tid ({selectedDays} dager)</h2>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
+            <h2 className="text-2xl font-bold">
+              {isCumulative ? 'Kumulativ SMFI' : 'SMFI'} over tid ({selectedDays} dager)
+            </h2>
+            <div className="flex gap-2">
+              <Button 
+                variant={!isCumulative ? "default" : "outline"}
+                onClick={() => setIsCumulative(false)}
+                size="sm"
+              >
+                Vanlig
+              </Button>
+              <Button 
+                variant={isCumulative ? "default" : "outline"}
+                onClick={() => setIsCumulative(true)}
+                size="sm"
+              >
+                Kumulativ
+              </Button>
+            </div>
+          </div>
           {loading && smfiData.length === 0 ? (
             <Skeleton className="h-[400px] w-full" />
           ) : (
             <ResponsiveContainer width="100%" height={400}>
-              <LineChart data={smfiData}>
+              <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" />
                 <YAxis 
-                  label={{ value: 'SMFI', angle: -90, position: 'insideLeft' }}
+                  label={{ value: isCumulative ? 'Kumulativ SMFI' : 'SMFI', angle: -90, position: 'insideLeft' }}
                   stroke="hsl(var(--muted-foreground))"
                 />
                 <Tooltip 
-                  formatter={(value: number) => [`${value.toFixed(3)}`, 'SMFI']}
+                  formatter={(value: number) => [`${value.toFixed(3)}`, isCumulative ? 'Kumulativ SMFI' : 'SMFI']}
                   labelStyle={{ color: 'hsl(var(--foreground))' }}
                   contentStyle={{ 
                     backgroundColor: 'hsl(var(--card))', 
@@ -187,7 +217,7 @@ const SmartMoneyFlow = () => {
                   }}
                 />
                 <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" label="Nøytral" />
-                {statistics && (
+                {!isCumulative && statistics && (
                   <>
                     <ReferenceLine 
                       y={statistics.upperBand} 
@@ -205,8 +235,8 @@ const SmartMoneyFlow = () => {
                 )}
                 <Line 
                   type="monotone" 
-                  dataKey="smfi" 
-                  name="SMFI"
+                  dataKey="value" 
+                  name={isCumulative ? 'Kumulativ SMFI' : 'SMFI'}
                   stroke="hsl(var(--primary))"
                   strokeWidth={2}
                   dot={false}

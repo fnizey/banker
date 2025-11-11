@@ -146,14 +146,24 @@ serve(async (req) => {
       };
     });
 
+    // Calculate cumulative SMFI
+    let cumulativeSum = 0;
+    const smfiTimeSeriesWithCumulative = smfiTimeSeries.map(d => {
+      cumulativeSum += d.smfi;
+      return {
+        ...d,
+        cumulativeSMFI: cumulativeSum,
+      };
+    });
+
     // Calculate SMFI statistics
-    const smfiValues = smfiTimeSeries.map(d => d.smfi);
+    const smfiValues = smfiTimeSeriesWithCumulative.map(d => d.smfi);
     const smfiMean = smfiValues.reduce((a, b) => a + b, 0) / smfiValues.length;
     const smfiVariance = smfiValues.reduce((sum, val) => sum + Math.pow(val - smfiMean, 2), 0) / smfiValues.length;
     const smfiStdDev = Math.sqrt(smfiVariance);
 
-    const currentSMFI = smfiTimeSeries[smfiTimeSeries.length - 1];
-    const weekAgoSMFI = smfiTimeSeries[Math.max(0, smfiTimeSeries.length - 7)];
+    const currentSMFI = smfiTimeSeriesWithCumulative[smfiTimeSeriesWithCumulative.length - 1];
+    const weekAgoSMFI = smfiTimeSeriesWithCumulative[Math.max(0, smfiTimeSeriesWithCumulative.length - 7)];
     const sevenDayChange = currentSMFI.smfi - weekAgoSMFI.smfi;
 
     // Determine sentiment
@@ -168,7 +178,7 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({
-        smfiTimeSeries: smfiTimeSeries.slice(-days),
+        smfiTimeSeries: smfiTimeSeriesWithCumulative.slice(-days),
         currentSMFI: currentSMFI || null,
         sevenDayChange,
         sentiment,
