@@ -175,7 +175,9 @@ const SectorSentimentIndex = () => {
             {loading && !currentSSI ? (
               <Skeleton className="h-12 w-32" />
             ) : (
-              <p className="text-3xl font-bold">{currentSSI?.ssiEMA.toFixed(2) || 'N/A'}</p>
+              <p className="text-3xl font-bold">
+                {currentSSI?.ssiEMA != null ? currentSSI.ssiEMA.toFixed(2) : 'N/A'}
+              </p>
             )}
           </Card>
           <Card className="p-6 shadow-lg border-2">
@@ -183,8 +185,8 @@ const SectorSentimentIndex = () => {
             {loading && !currentSSI ? (
               <Skeleton className="h-12 w-32" />
             ) : (
-              <p className={`text-3xl font-bold ${fiveDayChange >= 0 ? 'text-red-500' : 'text-green-500'}`}>
-                {fiveDayChange >= 0 ? '+' : ''}{fiveDayChange.toFixed(2)}
+              <p className={`text-3xl font-bold ${fiveDayChange != null && fiveDayChange >= 0 ? 'text-red-500' : 'text-green-500'}`}>
+                {fiveDayChange != null ? `${fiveDayChange >= 0 ? '+' : ''}${fiveDayChange.toFixed(2)}` : 'N/A'}
               </p>
             )}
           </Card>
@@ -193,7 +195,9 @@ const SectorSentimentIndex = () => {
             {loading && !currentSSI ? (
               <Skeleton className="h-12 w-32" />
             ) : (
-              <p className="text-3xl font-bold">{currentSSI?.ssiCumulative.toFixed(2) || 'N/A'}</p>
+              <p className="text-3xl font-bold">
+                {currentSSI?.ssiCumulative != null ? currentSSI.ssiCumulative.toFixed(2) : 'N/A'}
+              </p>
             )}
           </Card>
           <Card className="p-6 shadow-lg border-2">
