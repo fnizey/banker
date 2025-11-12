@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
@@ -37,9 +38,56 @@ const AlphaOpportunity = () => {
   const [interpretation, setInterpretation] = useState<string>('');
   const [aoriTimeSeries, setAoriTimeSeries] = useState<AORIPoint[]>([]);
   const [components, setComponents] = useState<ComponentContribution[]>([]);
+  const [selectedDays, setSelectedDays] = useState<number>(60);
 
-  const sigmoid = (x: number): number => {
-    return 1 / (1 + Math.exp(-x));
+  // Statistical transformation functions
+  const fisherZ = (r: number): number => {
+    const clipped = Math.max(-0.999, Math.min(0.999, r));
+    return 0.5 * Math.log((1 + clipped) / (1 - clipped));
+  };
+
+  const logit = (p: number): number => {
+    const clipped = Math.max(0.001, Math.min(0.999, p));
+    return Math.log(clipped / (1 - clipped));
+  };
+
+  const median = (values: number[]): number => {
+    if (values.length === 0) return 0;
+    const sorted = [...values].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+  };
+
+  const mad = (values: number[], medianVal: number): number => {
+    const deviations = values.map(v => Math.abs(v - medianVal));
+    return median(deviations);
+  };
+
+  const robustZScore = (value: number, values: number[]): number => {
+    if (values.length < 10) return 0;
+    const med = median(values);
+    const madVal = mad(values, med);
+    if (madVal === 0) return 0;
+    return (value - med) / (1.4826 * madVal);
+  };
+
+  const winsorize = (z: number, limit: number = 3): number => {
+    return Math.max(-limit, Math.min(limit, z));
+  };
+
+  const tanhScale = (z: number): number => {
+    return 0.5 + 0.5 * Math.tanh(z / 2);
+  };
+
+  const calculateEMA = (values: number[], period: number): number[] => {
+    if (values.length === 0) return [];
+    const ema: number[] = [];
+    const multiplier = 2 / (period + 1);
+    ema[0] = values[0];
+    for (let i = 1; i < values.length; i++) {
+      ema[i] = (values[i] - ema[i - 1]) * multiplier + ema[i - 1];
+    }
+    return ema;
   };
 
   const getInterpretation = (aori: number): string => {
@@ -55,24 +103,113 @@ const AlphaOpportunity = () => {
     return "hsl(var(--destructive))";
   };
 
-  const calculateAORI = (
-    ssi_ema: number,
-    ssi_delta: number,
-    cc: number,
-    xci: number,
-    fbi: number,
-    lars: number,
-    smfi: number
-  ): { aori: number; components: ComponentContribution[] } => {
-    // Normalize inputs
-    const nSSI = sigmoid(ssi_ema + ssi_delta);
-    const nCORR = 1 - (cc / (xci + 1e-6));
-    const nFBI = Math.min(Math.max(fbi / 100, 0), 1);
-    const nLARS = 0.5 + 0.5 * Math.tanh(lars);
-    const nSMFI = 0.5 - 0.5 * Math.tanh(smfi);
+  const calculateAORITimeSeries = (
+    ssiData: any,
+    regimeData: any,
+    larsData: any,
+    smfiData: any
+  ): { timeSeries: AORIPoint[]; latestComponents: ComponentContribution[] } => {
+    // Build raw component arrays
+    const minLength = Math.min(
+      ssiData.ssiTimeSeries?.length || 0,
+      regimeData.timeSeries?.length || 0,
+      larsData.larsTimeSeries?.length || 0,
+      smfiData.smfiTimeSeries?.length || 0
+    );
 
-    // Calculate contributions
-    const weights = {
+    if (minLength === 0) {
+      return { timeSeries: [], latestComponents: [] };
+    }
+
+    // Extract raw values
+    const rawSentiment: number[] = [];
+    const rawCorrDisp: number[] = [];
+    const rawLiqBreadth: number[] = [];
+    const rawAsymmetry: number[] = [];
+    const rawRotation: number[] = [];
+    const dates: string[] = [];
+
+    for (let i = 0; i < minLength; i++) {
+      const ssiPoint = ssiData.ssiTimeSeries[i];
+      const regimePoint = regimeData.timeSeries[i];
+      const larsPoint = larsData.larsTimeSeries[i];
+      const smfiPoint = smfiData.smfiTimeSeries[i];
+
+      // Sentiment = SSI_EMA + 5-day delta (only for last point)
+      const delta = i === minLength - 1 ? (ssiData.fiveDayChange || 0) : 0;
+      rawSentiment.push(ssiPoint.ssiEMA + delta);
+
+      // Correlation Dispersion = Fisher-z(XCI) - Fisher-z(CC)
+      rawCorrDisp.push(fisherZ(regimePoint.xci) - fisherZ(regimePoint.cc));
+
+      // Liquidity Breadth = logit(FBI)
+      rawLiqBreadth.push(logit(regimePoint.fbi / 100));
+
+      // Asymmetry = LARS
+      rawAsymmetry.push(larsPoint.larsCumulative);
+
+      // Rotation = SMFI
+      rawRotation.push(smfiPoint.smfi);
+
+      dates.push(ssiPoint.date);
+    }
+
+    // Calculate rolling 252-day robust z-scores and normalize
+    const normalizedSentiment: number[] = [];
+    const normalizedCorrDisp: number[] = [];
+    const normalizedLiqBreadth: number[] = [];
+    const normalizedAsymmetry: number[] = [];
+    const normalizedRotation: number[] = [];
+
+    const lookback = 252;
+
+    for (let i = 0; i < minLength; i++) {
+      const start = Math.max(0, i - lookback + 1);
+      const window = i - start + 1;
+
+      if (window >= 10) {
+        // Sentiment
+        const zSent = robustZScore(rawSentiment[i], rawSentiment.slice(start, i + 1));
+        const wSent = winsorize(zSent);
+        normalizedSentiment.push(tanhScale(wSent));
+
+        // Correlation Dispersion
+        const zCorr = robustZScore(rawCorrDisp[i], rawCorrDisp.slice(start, i + 1));
+        const wCorr = winsorize(zCorr);
+        normalizedCorrDisp.push(tanhScale(wCorr));
+
+        // Liquidity Breadth
+        const zLiq = robustZScore(rawLiqBreadth[i], rawLiqBreadth.slice(start, i + 1));
+        const wLiq = winsorize(zLiq);
+        normalizedLiqBreadth.push(tanhScale(wLiq));
+
+        // Asymmetry
+        const zAsym = robustZScore(rawAsymmetry[i], rawAsymmetry.slice(start, i + 1));
+        const wAsym = winsorize(zAsym);
+        normalizedAsymmetry.push(tanhScale(wAsym));
+
+        // Rotation (inverted: high SMFI = risk-off = low alpha)
+        const zRot = robustZScore(rawRotation[i], rawRotation.slice(start, i + 1));
+        const wRot = winsorize(zRot);
+        normalizedRotation.push(1 - tanhScale(wRot));
+      } else {
+        normalizedSentiment.push(0.5);
+        normalizedCorrDisp.push(0.5);
+        normalizedLiqBreadth.push(0.5);
+        normalizedAsymmetry.push(0.5);
+        normalizedRotation.push(0.5);
+      }
+    }
+
+    // Apply 10-day EMA smoothing
+    const emaSentiment = calculateEMA(normalizedSentiment, 10);
+    const emaCorrDisp = calculateEMA(normalizedCorrDisp, 10);
+    const emaLiqBreadth = calculateEMA(normalizedLiqBreadth, 10);
+    const emaAsymmetry = calculateEMA(normalizedAsymmetry, 10);
+    const emaRotation = calculateEMA(normalizedRotation, 10);
+
+    // Calculate AORI with dynamic re-weighting
+    const baseWeights = {
       sentiment: 0.25,
       correlation: 0.25,
       breadth: 0.20,
@@ -80,71 +217,93 @@ const AlphaOpportunity = () => {
       rotation: 0.15
     };
 
-    const components: ComponentContribution[] = [
+    const timeSeries: AORIPoint[] = [];
+
+    for (let i = 0; i < minLength; i++) {
+      const components = [
+        { name: 'sentiment', value: emaSentiment[i], weight: baseWeights.sentiment },
+        { name: 'correlation', value: emaCorrDisp[i], weight: baseWeights.correlation },
+        { name: 'breadth', value: emaLiqBreadth[i], weight: baseWeights.breadth },
+        { name: 'asymmetry', value: emaAsymmetry[i], weight: baseWeights.asymmetry },
+        { name: 'rotation', value: emaRotation[i], weight: baseWeights.rotation }
+      ];
+
+      // Filter out missing components and re-weight
+      const validComponents = components.filter(c => !isNaN(c.value) && isFinite(c.value));
+      const totalWeight = validComponents.reduce((sum, c) => sum + c.weight, 0);
+
+      let aori = 0;
+      if (totalWeight > 0) {
+        aori = validComponents.reduce((sum, c) => sum + (c.value * c.weight / totalWeight), 0) * 100;
+      }
+
+      aori = Math.max(0, Math.min(100, aori));
+
+      timeSeries.push({
+        date: dates[i],
+        aori: Number(aori.toFixed(2)),
+        interpretation: getInterpretation(aori)
+      });
+    }
+
+    // Build latest components for breakdown table
+    const lastIdx = minLength - 1;
+    const latestComponents: ComponentContribution[] = [
       {
         factor: 'Sentiment',
-        value: ssi_ema + ssi_delta,
-        normalized: nSSI,
-        weight: weights.sentiment,
-        contribution: nSSI * weights.sentiment
+        value: rawSentiment[lastIdx],
+        normalized: emaSentiment[lastIdx],
+        weight: baseWeights.sentiment,
+        contribution: emaSentiment[lastIdx] * baseWeights.sentiment
       },
       {
         factor: 'Correlation Dispersion',
-        value: cc / (xci + 1e-6),
-        normalized: nCORR,
-        weight: weights.correlation,
-        contribution: nCORR * weights.correlation
+        value: rawCorrDisp[lastIdx],
+        normalized: emaCorrDisp[lastIdx],
+        weight: baseWeights.correlation,
+        contribution: emaCorrDisp[lastIdx] * baseWeights.correlation
       },
       {
         factor: 'Liquidity Breadth',
-        value: fbi,
-        normalized: nFBI,
-        weight: weights.breadth,
-        contribution: nFBI * weights.breadth
+        value: rawLiqBreadth[lastIdx],
+        normalized: emaLiqBreadth[lastIdx],
+        weight: baseWeights.breadth,
+        contribution: emaLiqBreadth[lastIdx] * baseWeights.breadth
       },
       {
         factor: 'Asymmetry (LARS)',
-        value: lars,
-        normalized: nLARS,
-        weight: weights.asymmetry,
-        contribution: nLARS * weights.asymmetry
+        value: rawAsymmetry[lastIdx],
+        normalized: emaAsymmetry[lastIdx],
+        weight: baseWeights.asymmetry,
+        contribution: emaAsymmetry[lastIdx] * baseWeights.asymmetry
       },
       {
         factor: 'Rotation (SMFI)',
-        value: smfi,
-        normalized: nSMFI,
-        weight: weights.rotation,
-        contribution: nSMFI * weights.rotation
+        value: rawRotation[lastIdx],
+        normalized: emaRotation[lastIdx],
+        weight: baseWeights.rotation,
+        contribution: emaRotation[lastIdx] * baseWeights.rotation
       }
     ];
 
-    const aori = Math.min(Math.max(
-      100 * (
-        weights.sentiment * nSSI +
-        weights.correlation * nCORR +
-        weights.breadth * nFBI +
-        weights.asymmetry * nLARS +
-        weights.rotation * nSMFI
-      ),
-      0
-    ), 100);
-
-    return { aori, components };
+    return { timeSeries, latestComponents };
   };
 
   useEffect(() => {
     fetchAORIData();
-  }, []);
+  }, [selectedDays]);
 
   const fetchAORIData = async () => {
     setLoading(true);
     try {
-      // Fetch all required data
+      // Fetch data with buffer for 252-day rolling window
+      const fetchDays = selectedDays + 252;
+      
       const [ssiRes, regimeRes, larsRes, smfiRes] = await Promise.all([
-        supabase.functions.invoke('calculate-ssi', { body: { days: 60 } }),
-        supabase.functions.invoke('calculate-regime-correlation', { body: { days: 60 } }),
-        supabase.functions.invoke('calculate-lars', { body: { days: 60 } }),
-        supabase.functions.invoke('calculate-smfi', { body: { days: 60 } })
+        supabase.functions.invoke('calculate-ssi', { body: { days: fetchDays } }),
+        supabase.functions.invoke('calculate-regime-correlation', { body: { days: fetchDays } }),
+        supabase.functions.invoke('calculate-lars', { body: { days: fetchDays } }),
+        supabase.functions.invoke('calculate-smfi', { body: { days: fetchDays } })
       ]);
 
       if (ssiRes.error || regimeRes.error || larsRes.error || smfiRes.error) {
@@ -156,62 +315,23 @@ const AlphaOpportunity = () => {
       const larsData = larsRes.data;
       const smfiData = smfiRes.data;
 
-      // Build time series
-      const timeSeries: AORIPoint[] = [];
-      const minLength = Math.min(
-        ssiData.ssiTimeSeries?.length || 0,
-        regimeData.timeSeries?.length || 0,
-        larsData.larsTimeSeries?.length || 0,
-        smfiData.smfiTimeSeries?.length || 0
+      const { timeSeries, latestComponents } = calculateAORITimeSeries(
+        ssiData,
+        regimeData,
+        larsData,
+        smfiData
       );
 
-      for (let i = 0; i < minLength; i++) {
-        const ssiPoint = ssiData.ssiTimeSeries[i];
-        const regimePoint = regimeData.timeSeries[i];
-        const larsPoint = larsData.larsTimeSeries[i];
-        const smfiPoint = smfiData.smfiTimeSeries[i];
-
-        const { aori } = calculateAORI(
-          ssiPoint.ssiEMA,
-          i === minLength - 1 ? (ssiData.fiveDayChange || 0) : 0,
-          regimePoint.cc,
-          regimePoint.xci,
-          regimePoint.fbi,
-          larsPoint.larsCumulative,
-          smfiPoint.smfi
-        );
-
-        timeSeries.push({
-          date: ssiPoint.date,
-          aori: Number(aori.toFixed(2)),
-          interpretation: getInterpretation(aori)
-        });
-      }
-
-      // Set current values
       if (timeSeries.length > 0) {
+        // Take only the selected period for display
+        const displaySeries = timeSeries.slice(-selectedDays);
+        setAoriTimeSeries(displaySeries);
+        
         const latest = timeSeries[timeSeries.length - 1];
-        const latestSSI = ssiData.ssiTimeSeries[ssiData.ssiTimeSeries.length - 1];
-        const latestRegime = regimeData.timeSeries[regimeData.timeSeries.length - 1];
-        const latestLARS = larsData.larsTimeSeries[larsData.larsTimeSeries.length - 1];
-        const latestSMFI = smfiData.smfiTimeSeries[smfiData.smfiTimeSeries.length - 1];
-
-        const { aori, components } = calculateAORI(
-          latestSSI.ssiEMA,
-          ssiData.fiveDayChange || 0,
-          latestRegime.cc,
-          latestRegime.xci,
-          latestRegime.fbi,
-          latestLARS.larsCumulative,
-          latestSMFI.smfi
-        );
-
-        setCurrentAORI(aori);
-        setInterpretation(getInterpretation(aori));
-        setComponents(components);
+        setCurrentAORI(latest.aori);
+        setInterpretation(latest.interpretation);
+        setComponents(latestComponents);
       }
-
-      setAoriTimeSeries(timeSeries);
     } catch (error) {
       console.error('Error fetching AORI data:', error);
       toast.error('Kunne ikke hente AORI-data');
@@ -287,11 +407,25 @@ const AlphaOpportunity = () => {
       transition={{ duration: 0.3 }}
       className="space-y-6 p-6"
     >
-      <div>
-        <h1 className="text-3xl font-bold mb-2">Alpha Opportunity Regime Index (AORI)</h1>
-        <p className="text-muted-foreground">
-          Composite index combining sentiment, correlation, liquidity, asymmetry and capital rotation to quantify idiosyncratic alpha availability (0–100).
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Alpha Opportunity Regime Index (AORI)</h1>
+          <p className="text-muted-foreground">
+            Robust z-score composite combining sentiment, correlation, liquidity, asymmetry and rotation to quantify idiosyncratic alpha availability (0–100).
+          </p>
+        </div>
+        <div className="flex gap-2">
+          {[60, 180, 365].map((days) => (
+            <Button
+              key={days}
+              variant={selectedDays === days ? 'default' : 'outline'}
+              onClick={() => setSelectedDays(days)}
+              size="sm"
+            >
+              {days}d
+            </Button>
+          ))}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -341,12 +475,18 @@ const AlphaOpportunity = () => {
       {/* Trend Chart */}
       <Card>
         <CardHeader>
-          <CardTitle>AORI Trend (60 Days)</CardTitle>
+          <CardTitle>AORI EMA Trend ({Math.min(90, selectedDays)} Days)</CardTitle>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={aoriTimeSeries}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+            <LineChart data={aoriTimeSeries.slice(-90)}>
+              <defs>
+                <linearGradient id="aoriGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="hsl(180, 70%, 40%)" stopOpacity={0.8} />
+                  <stop offset="100%" stopColor="hsl(180, 70%, 40%)" stopOpacity={0.1} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
               <XAxis 
                 dataKey="date" 
                 stroke="hsl(var(--muted-foreground))"
@@ -363,20 +503,29 @@ const AlphaOpportunity = () => {
                   border: '1px solid hsl(var(--border))',
                   borderRadius: '8px'
                 }}
-                formatter={(value: number) => [`${value.toFixed(1)}`, 'AORI']}
-                labelFormatter={(label) => `Date: ${label}`}
+                formatter={(value: number, name: string, props: any) => [
+                  `${value.toFixed(1)}`,
+                  'AORI',
+                  props.payload.interpretation
+                ]}
+                labelFormatter={(label) => `Dato: ${label}`}
               />
-              <ReferenceLine y={70} stroke="hsl(var(--success))" strokeDasharray="3 3" />
-              <ReferenceLine y={35} stroke="hsl(var(--destructive))" strokeDasharray="3 3" />
+              <ReferenceLine y={70} stroke="hsl(var(--success))" strokeDasharray="3 3" label="High Alpha" />
+              <ReferenceLine y={35} stroke="hsl(var(--destructive))" strokeDasharray="3 3" label="Low Alpha" />
               <Line 
                 type="monotone" 
                 dataKey="aori" 
-                stroke="hsl(var(--primary))" 
-                strokeWidth={2}
+                stroke="hsl(180, 70%, 40%)"
+                strokeWidth={3}
                 dot={false}
+                fill="url(#aoriGradient)"
               />
             </LineChart>
           </ResponsiveContainer>
+          <p className="text-xs text-muted-foreground mt-2 text-center">
+            Rising AORI (blue-green) indicates expanding alpha opportunities and lower crowding. 
+            Falling AORI (red-gray zone) signals defensive positioning.
+          </p>
         </CardContent>
       </Card>
 
