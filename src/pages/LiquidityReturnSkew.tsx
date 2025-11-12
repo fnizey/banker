@@ -11,11 +11,22 @@ interface LARSData {
   lars: number;
   skewness: number;
   avgNormalizedTurnover: number;
+  larsCumulative: number;
+}
+
+interface CumulativeStats {
+  mean: number;
+  stdDev: number;
+  upperBand: number;
+  lowerBand: number;
+  p90: number;
+  p10: number;
 }
 
 const LiquidityReturnSkew = () => {
   const [larsData, setLarsData] = useState<LARSData[]>([]);
   const [currentLARS, setCurrentLARS] = useState<LARSData | null>(null);
+  const [cumulativeStats, setCumulativeStats] = useState<CumulativeStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [selectedDays, setSelectedDays] = useState<30 | 90 | 180 | 365>(90);
   const { toast } = useToast();
@@ -31,6 +42,7 @@ const LiquidityReturnSkew = () => {
 
       setLarsData(data.larsTimeSeries);
       setCurrentLARS(data.currentLARS);
+      setCumulativeStats(data.cumulativeStatistics);
     } catch (error) {
       console.error('Error fetching LARS:', error);
       toast({
@@ -111,13 +123,21 @@ const LiquidityReturnSkew = () => {
         </div>
 
         {/* Current LARS Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
           <Card className="p-6 shadow-lg border-2">
             <h3 className="text-sm font-medium text-muted-foreground mb-2">Nåværende LARS</h3>
             {loading && !currentLARS ? (
               <Skeleton className="h-12 w-32" />
             ) : (
               <p className="text-3xl font-bold">{currentLARS?.lars.toFixed(3) || 'N/A'}</p>
+            )}
+          </Card>
+          <Card className="p-6 shadow-lg border-2">
+            <h3 className="text-sm font-medium text-muted-foreground mb-2">Kumulativ LARS</h3>
+            {loading && !currentLARS ? (
+              <Skeleton className="h-12 w-32" />
+            ) : (
+              <p className="text-3xl font-bold">{currentLARS?.larsCumulative.toFixed(2) || 'N/A'}</p>
             )}
           </Card>
           <Card className="p-6 shadow-lg border-2">
@@ -145,7 +165,7 @@ const LiquidityReturnSkew = () => {
         </Card>
 
         {/* LARS Time Series Chart */}
-        <Card className="p-6 shadow-lg border-2 bg-gradient-to-br from-card via-card to-accent/5">
+        <Card className="p-6 shadow-lg border-2 bg-gradient-to-br from-card via-card to-accent/5 mb-8">
           <h2 className="text-2xl font-bold mb-4">LARS over tid ({selectedDays} dager)</h2>
           {loading && larsData.length === 0 ? (
             <Skeleton className="h-[400px] w-full" />
@@ -183,14 +203,65 @@ const LiquidityReturnSkew = () => {
           )}
         </Card>
 
+        {/* Cumulative LARS Chart */}
+        <Card className="p-6 shadow-lg border-2 bg-gradient-to-br from-card via-card to-primary/5">
+          <h2 className="text-2xl font-bold mb-4">Kumulativ LARS over tid ({selectedDays} dager)</h2>
+          {loading && larsData.length === 0 ? (
+            <Skeleton className="h-[400px] w-full" />
+          ) : (
+            <ResponsiveContainer width="100%" height={400}>
+              <LineChart data={larsData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" />
+                <YAxis 
+                  label={{ value: 'Kumulativ LARS', angle: -90, position: 'insideLeft' }}
+                  stroke="hsl(var(--muted-foreground))"
+                />
+                <Tooltip 
+                  formatter={(value: number) => [`${value.toFixed(2)}`, 'Kumulativ LARS']}
+                  labelStyle={{ color: 'hsl(var(--foreground))' }}
+                  contentStyle={{ 
+                    backgroundColor: 'hsl(var(--card))', 
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '8px'
+                  }}
+                />
+                <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" />
+                {cumulativeStats && (
+                  <>
+                    <ReferenceLine y={cumulativeStats.upperBand} stroke="hsl(var(--destructive))" strokeDasharray="3 3" label="+1σ" />
+                    <ReferenceLine y={cumulativeStats.lowerBand} stroke="hsl(var(--chart-2))" strokeDasharray="3 3" label="-1σ" />
+                    <ReferenceLine y={cumulativeStats.p90} stroke="hsl(var(--destructive))" strokeDasharray="5 5" strokeOpacity={0.5} label="P90" />
+                    <ReferenceLine y={cumulativeStats.p10} stroke="hsl(var(--chart-2))" strokeDasharray="5 5" strokeOpacity={0.5} label="P10" />
+                  </>
+                )}
+                <Line 
+                  type="monotone" 
+                  dataKey="larsCumulative" 
+                  name="Kumulativ LARS"
+                  stroke="hsl(var(--primary))"
+                  strokeWidth={2}
+                  dot={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+        </Card>
+
         {/* Info Card */}
         <Card className="p-6 mt-8 bg-accent/10">
           <h3 className="text-lg font-semibold mb-2">Om LARS</h3>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground mb-4">
             LARS måler asymmetriske bevegelser i avkastning justert for likviditet. Positive verdier indikerer stealth akkumulering 
             (risk-on sentiment) hvor det er asymmetrisk oppside under lav likviditet. Negative verdier indikerer de-risking eller 
             defensiv kapitalflyt. LARS kombinerer cross-sectional skewness med normalisert omsetning for å fange opp skjulte 
             markedsbevegelser.
+          </p>
+          <h4 className="text-md font-semibold mb-2 mt-4">Kumulativ LARS</h4>
+          <p className="text-muted-foreground">
+            Kumulativ LARS viser den akkumulerte trenden i likviditetsjustert return skewness over tid. Denne versjonen er detrended 
+            (120-dagers rullerende gjennomsnitt fjernet) og kumulert for å identifisere lengre regime-skift i kapitalflyt-mønstre. 
+            Økende kumulativ LARS indikerer vedvarende stealth akkumulering, mens fallende verdier signaliserer vedvarende de-risking.
           </p>
         </Card>
       </div>

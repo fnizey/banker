@@ -208,14 +208,64 @@ serve(async (req) => {
       };
     }).filter(d => d !== null);
 
-    const currentLARS = larsTimeSeries[larsTimeSeries.length - 1];
+    // Calculate detrended LARS (remove 120-day rolling mean)
+    const larsValues = larsTimeSeries.map(d => d.lars);
+    const rollingMean = calculateMovingAverage(larsValues, Math.min(120, larsValues.length));
+    const detrendedLARS = larsValues.map((val, i) => val - rollingMean[i]);
+    
+    // Calculate cumulative LARS
+    let cumulativeSum = 0;
+    const larsCumulative = detrendedLARS.map(val => {
+      cumulativeSum += val;
+      return cumulativeSum;
+    });
+    
+    // Add cumulative values to time series
+    const enhancedTimeSeries = larsTimeSeries.map((d, i) => ({
+      ...d,
+      larsCumulative: larsCumulative[i],
+    }));
+
+    const currentLARS = enhancedTimeSeries[enhancedTimeSeries.length - 1];
+
+    // Calculate statistics for cumulative LARS
+    const cumulativeValues = larsCumulative.slice(-days);
+    const cumulativeMean = cumulativeValues.reduce((a, b) => a + b, 0) / cumulativeValues.length;
+    
+    function calculateStdDev(values: number[]): number {
+      if (values.length === 0) return 0;
+      const mean = values.reduce((a, b) => a + b, 0) / values.length;
+      const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length;
+      return Math.sqrt(variance);
+    }
+    
+    const cumulativeStdDev = calculateStdDev(cumulativeValues);
+    
+    function calculatePercentile(values: number[], percentile: number): number {
+      const sorted = [...values].sort((a, b) => a - b);
+      const index = (percentile / 100) * (sorted.length - 1);
+      const lower = Math.floor(index);
+      const upper = Math.ceil(index);
+      const weight = index - lower;
+      return sorted[lower] * (1 - weight) + sorted[upper] * weight;
+    }
+    
+    const cumulativeStats = {
+      mean: cumulativeMean,
+      stdDev: cumulativeStdDev,
+      upperBand: cumulativeMean + cumulativeStdDev,
+      lowerBand: cumulativeMean - cumulativeStdDev,
+      p90: calculatePercentile(cumulativeValues, 90),
+      p10: calculatePercentile(cumulativeValues, 10),
+    };
 
     console.log('LARS calculation completed successfully');
 
     return new Response(
       JSON.stringify({
-        larsTimeSeries: larsTimeSeries.slice(-days),
+        larsTimeSeries: enhancedTimeSeries.slice(-days),
         currentLARS: currentLARS || null,
+        cumulativeStatistics: cumulativeStats,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
