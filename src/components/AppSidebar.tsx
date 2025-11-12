@@ -23,6 +23,7 @@ const mainItems = [
 const analysisItems = [
   { title: "Advanced Analytics", url: "/advanced-analytics", icon: Zap },
   { title: "SSI", url: "/ssi", icon: TrendingUp },
+  { title: "Alpha Opportunity", url: "/alpha-opportunity", icon: Zap },
   { title: "Cross-Sectional Dispersion", url: "/dispersion", icon: TrendingUp },
   { title: "Kapitalrotasjon", url: "/rotation", icon: TrendingUp },
   { title: "Relativ Ytelse", url: "/performance", icon: LineChart },

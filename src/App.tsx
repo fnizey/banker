@@ -20,6 +20,7 @@ import LiquidityReturnSkew from "./pages/LiquidityReturnSkew";
 import SmartMoneyFlow from "./pages/SmartMoneyFlow";
 import SectorSentimentIndex from "./pages/SectorSentimentIndex";
 import AdvancedAnalytics from "./pages/AdvancedAnalytics";
+import AlphaOpportunity from "./pages/AlphaOpportunity";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -56,6 +57,7 @@ const App = () => (
             <Route path="/lars" element={<LiquidityReturnSkew />} />
             <Route path="/smfi" element={<SmartMoneyFlow />} />
             <Route path="/ssi" element={<SectorSentimentIndex />} />
+            <Route path="/alpha-opportunity" element={<AlphaOpportunity />} />
             <Route path="/advanced-analytics" element={<AdvancedAnalytics />} />
                       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                       <Route path="*" element={<NotFound />} />
