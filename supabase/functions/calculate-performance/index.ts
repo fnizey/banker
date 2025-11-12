@@ -158,7 +158,13 @@ serve(async (req) => {
     
     console.log(`Processing ${allDates.length} dates`);
     
-    // Calculate average cumulative return for each category at each date
+    // Build a map of last known cumulative return for each bank
+    const bankLastReturns = new Map<string, number>();
+    for (const bank of categorizedBanks) {
+      bankLastReturns.set(bank.ticker, 0);
+    }
+
+    // Calculate average cumulative return for each category at each date WITH forward-filling
     const performanceTimeSeries = allDates.map(date => {
       const categoriesData: Record<string, number[]> = {
         Small: [],
@@ -166,15 +172,23 @@ serve(async (req) => {
         Large: []
       };
       
-      // Collect cumulative returns for each category
+      // Update last known returns and collect for each category
       for (const bank of categorizedBanks) {
         const dateIndex = bank.dates.indexOf(date);
+        
         if (dateIndex !== -1) {
-          categoriesData[bank.category].push(bank.cumulativeReturns[dateIndex]);
+          // Bank has data for this date - update last known return
+          const returnValue = bank.cumulativeReturns[dateIndex];
+          bankLastReturns.set(bank.ticker, returnValue);
+          categoriesData[bank.category].push(returnValue);
+        } else {
+          // Bank has no data for this date - use last known return (forward-fill)
+          const lastReturn = bankLastReturns.get(bank.ticker) || 0;
+          categoriesData[bank.category].push(lastReturn);
         }
       }
       
-      // Calculate average for each category
+      // Calculate average for each category (now always includes all banks)
       const avgReturns: Record<string, number> = {};
       for (const [category, returns] of Object.entries(categoriesData)) {
         if (returns.length > 0) {
