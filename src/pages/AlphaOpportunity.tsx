@@ -298,10 +298,12 @@ const AlphaOpportunity = () => {
     try {
       // Fetch data with buffer for 252-day rolling window
       const fetchDays = selectedDays + 252;
+      // Limit regime-correlation to max 180 days to avoid CPU timeout
+      const regimeDays = Math.min(selectedDays, 180);
       
       const [ssiRes, regimeRes, larsRes, smfiRes] = await Promise.all([
         supabase.functions.invoke('calculate-ssi', { body: { days: fetchDays } }),
-        supabase.functions.invoke('calculate-regime-correlation', { body: { days: fetchDays } }),
+        supabase.functions.invoke('calculate-regime-correlation', { body: { days: regimeDays } }),
         supabase.functions.invoke('calculate-lars', { body: { days: fetchDays } }),
         supabase.functions.invoke('calculate-smfi', { body: { days: fetchDays } })
       ]);
