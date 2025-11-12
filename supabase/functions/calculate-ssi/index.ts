@@ -291,7 +291,7 @@ function calculateCSD(allBankData: BankData[]): { date: string; dispersion: numb
 }
 
 function calculateRotation(allBankData: BankData[]): { date: string; combinedRotation: number }[] {
-  console.log('Calculating Kapitalrotasjon...');
+  console.log('Calculating Kapitalrotasjon with forward-filling...');
   
   // Calculate normalized turnover for each bank
   for (const bank of allBankData) {
@@ -301,7 +301,15 @@ function calculateRotation(allBankData: BankData[]): { date: string; combinedRot
   // Get all unique dates
   const allDates = [...new Set(allBankData.flatMap(b => b.data.map(d => d.date)))].sort();
   
-  // Calculate rotation metrics for each date
+  // Build maps of last known return and turnover for each bank
+  const bankLastReturn = new Map<string, number>();
+  const bankLastTurnover = new Map<string, number>();
+  for (const bank of allBankData) {
+    bankLastReturn.set(bank.ticker, 0);
+    bankLastTurnover.set(bank.ticker, 1.0);
+  }
+  
+  // Calculate rotation metrics for each date WITH forward-filling
   const rotationTimeSeries = [];
   
   for (let i = 1; i < allDates.length; i++) {
@@ -319,13 +327,24 @@ function calculateRotation(allBankData: BankData[]): { date: string; combinedRot
       const previousDay = bank.data.find(d => d.date === prevDate);
       
       if (currentDay && previousDay && currentDay.turnoverNorm !== undefined) {
+        // Bank has data for both days - calculate return and update last known values
         const dailyReturn = calculateDailyReturn(currentDay.close, previousDay.close);
+        bankLastReturn.set(bank.ticker, dailyReturn);
+        bankLastTurnover.set(bank.ticker, currentDay.turnoverNorm);
         
         categoriesData[bank.category].returns.push(dailyReturn);
         categoriesData[bank.category].turnoverNorms.push(currentDay.turnoverNorm);
+      } else {
+        // Bank has no data - use last known values (forward-fill)
+        const lastReturn = bankLastReturn.get(bank.ticker) || 0;
+        const lastTurnover = bankLastTurnover.get(bank.ticker) || 1.0;
+        
+        categoriesData[bank.category].returns.push(lastReturn);
+        categoriesData[bank.category].turnoverNorms.push(lastTurnover);
       }
     }
     
+    // Calculate average for each category (now always includes all banks)
     const avgReturns: Record<string, number> = {};
     const avgTurnoverNorms: Record<string, number> = {};
     
@@ -362,7 +381,7 @@ function calculateRotation(allBankData: BankData[]): { date: string; combinedRot
 }
 
 function calculateVDI(allBankData: BankData[]): { date: string; vdi: number }[] {
-  console.log('Calculating VDI...');
+  console.log('Calculating VDI with 80% threshold...');
   
   // Calculate normalized turnover for each bank
   for (const bank of allBankData) {
@@ -382,15 +401,24 @@ function calculateVDI(allBankData: BankData[]): { date: string; vdi: number }[] 
     return { ticker: bank.ticker, category: bank.category, returns };
   });
   
+  // Count total banks by category
+  const totalSmallBanks = bankMetrics.filter(b => b.category === 'Small').length;
+  const totalLargeBanks = bankMetrics.filter(b => b.category === 'Large').length;
+  
+  // Calculate 80% thresholds
+  const minSmallBanks = Math.ceil(totalSmallBanks * 0.8);
+  const minLargeBanks = Math.ceil(totalLargeBanks * 0.8);
+  
   // Get all unique dates
   const allDates = Array.from(new Set(bankMetrics.flatMap(b => b.returns.map(r => r.date)))).sort();
   
-  // Calculate VDI for each date
+  // Calculate VDI for each date (with 80% threshold)
   const vdiTimeSeries = allDates.map(date => {
     const smallBanks = bankMetrics.filter(b => b.category === 'Small' && b.returns.find(r => r.date === date));
     const largeBanks = bankMetrics.filter(b => b.category === 'Large' && b.returns.find(r => r.date === date));
     
-    if (smallBanks.length === 0 || largeBanks.length === 0) return null;
+    // Require at least 80% of banks in each category to have data
+    if (smallBanks.length < minSmallBanks || largeBanks.length < minLargeBanks) return null;
     
     const smallReturns = smallBanks.map(b => b.returns.find(r => r.date === date)?.return || 0);
     const largeReturns = largeBanks.map(b => b.returns.find(r => r.date === date)?.return || 0);
@@ -411,7 +439,7 @@ function calculateVDI(allBankData: BankData[]): { date: string; vdi: number }[] 
     return { date, vdi };
   }).filter((d): d is { date: string; vdi: number } => d !== null);
   
-  console.log(`VDI: ${vdiTimeSeries.length} data points`);
+  console.log(`VDI: ${vdiTimeSeries.length} data points (required ${minSmallBanks}/${totalSmallBanks} small banks, ${minLargeBanks}/${totalLargeBanks} large banks per date)`);
   return vdiTimeSeries;
 }
 
@@ -460,7 +488,7 @@ function calculateLARS(allBankData: BankData[]): { date: string; lars: number }[
 }
 
 function calculatePerformance(allBankData: BankData[]): { date: string; performanceDiff: number }[] {
-  console.log('Calculating Relativ Ytelse...');
+  console.log('Calculating Relativ Ytelse with forward-filling...');
   
   // Calculate cumulative returns for each bank
   const banksWithCumulativeReturns = allBankData.map(bank => {
@@ -484,7 +512,13 @@ function calculatePerformance(allBankData: BankData[]): { date: string; performa
   // Get all unique dates
   const allDates = [...new Set(banksWithCumulativeReturns.flatMap(b => b.dates))].sort();
   
-  // Calculate performance difference for each date
+  // Build a map of last known cumulative return for each bank
+  const bankLastReturns = new Map<string, number>();
+  for (const bank of banksWithCumulativeReturns) {
+    bankLastReturns.set(bank.ticker, 0);
+  }
+  
+  // Calculate performance difference for each date WITH forward-filling
   const performanceTimeSeries = allDates.map(date => {
     const categoriesData: Record<string, number[]> = {
       Small: [],
@@ -492,13 +526,23 @@ function calculatePerformance(allBankData: BankData[]): { date: string; performa
       Large: []
     };
     
+    // Update last known returns and collect for each category
     for (const bank of banksWithCumulativeReturns) {
       const dateIndex = bank.dates.indexOf(date);
+      
       if (dateIndex !== -1) {
-        categoriesData[bank.category].push(bank.cumulativeReturns[dateIndex]);
+        // Bank has data for this date - update last known return
+        const returnValue = bank.cumulativeReturns[dateIndex];
+        bankLastReturns.set(bank.ticker, returnValue);
+        categoriesData[bank.category].push(returnValue);
+      } else {
+        // Bank has no data for this date - use last known return (forward-fill)
+        const lastReturn = bankLastReturns.get(bank.ticker) || 0;
+        categoriesData[bank.category].push(lastReturn);
       }
     }
     
+    // Calculate average for each category (now always includes all banks)
     const avgReturns: Record<string, number> = {};
     for (const [category, returns] of Object.entries(categoriesData)) {
       if (returns.length > 0) {
