@@ -81,10 +81,15 @@ const fetchBankData = async (bank: Bank, retries = 3): Promise<BankData | null> 
       // Get current price (last close)
       const currentPrice = quotes[quotes.length - 1].close;
 
-      // Calculate today's change (last vs second-to-last)
-      const todayChange = quotes.length >= 2 
+      // Calculate today's change - only if last data point is from today
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const lastQuoteDate = new Date(quotes[quotes.length - 1].date);
+      lastQuoteDate.setHours(0, 0, 0, 0);
+
+      const todayChange = lastQuoteDate.getTime() === today.getTime() && quotes.length >= 2
         ? calculateChange(quotes[quotes.length - 1].close, quotes[quotes.length - 2].close)
-        : 0;
+        : 0; // If last data is not from today, no change yet
 
       // Calculate 1-month change (30 trading days)
       const monthIndex = Math.max(0, quotes.length - 30);
