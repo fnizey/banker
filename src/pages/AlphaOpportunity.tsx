@@ -173,7 +173,7 @@ const AlphaOpportunity = () => {
 
         const { aori } = calculateAORI(
           ssiPoint.ssi_ema,
-          i > 0 ? ssiPoint.ssi_ema - ssiData.ssiTimeSeries[i - 1].ssi_ema : 0,
+          i === minLength - 1 ? (ssiData.fiveDayChange || 0) : 0,
           regimePoint.cc,
           regimePoint.xci,
           regimePoint.fbi,
@@ -198,7 +198,7 @@ const AlphaOpportunity = () => {
 
         const { aori, components } = calculateAORI(
           latestSSI.ssi_ema,
-          ssiData.currentDelta5d || 0,
+          ssiData.fiveDayChange || 0,
           latestRegime.cc,
           latestRegime.xci,
           latestRegime.fbi,
