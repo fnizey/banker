@@ -7,7 +7,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { motion } from 'framer-motion';
 
 interface SSIData {
-  ssi_ema: number;
+  ssiEMA: number;
   delta_5d: number;
 }
 
@@ -172,7 +172,7 @@ const AlphaOpportunity = () => {
         const smfiPoint = smfiData.smfiTimeSeries[i];
 
         const { aori } = calculateAORI(
-          ssiPoint.ssi_ema,
+          ssiPoint.ssiEMA,
           i === minLength - 1 ? (ssiData.fiveDayChange || 0) : 0,
           regimePoint.cc,
           regimePoint.xci,
@@ -197,7 +197,7 @@ const AlphaOpportunity = () => {
         const latestSMFI = smfiData.smfiTimeSeries[smfiData.smfiTimeSeries.length - 1];
 
         const { aori, components } = calculateAORI(
-          latestSSI.ssi_ema,
+          latestSSI.ssiEMA,
           ssiData.fiveDayChange || 0,
           latestRegime.cc,
           latestRegime.xci,
