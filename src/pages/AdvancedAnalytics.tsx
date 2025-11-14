@@ -42,7 +42,7 @@ const AdvancedAnalytics = () => {
     queryKey: ['regime-correlation'],
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke('calculate-regime-correlation', {
-        body: { days: 90 }
+        body: { days: 180 }
       });
       if (error) throw error;
       return data;
