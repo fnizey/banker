@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.calculate-regime-correlation]
 verify_jwt = false
+
+[functions.calculate-backtest]
+verify_jwt = false
