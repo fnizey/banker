@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { BankData } from '@/types/bank';
 import { BANKS } from '@/types/bank';
 import { fetchAllBanksData } from '@/services/stockService';
@@ -20,6 +21,7 @@ interface BankDataContextType {
 const BankDataContext = createContext<BankDataContextType | undefined>(undefined);
 
 export const BankDataProvider = ({ children }: { children: ReactNode }) => {
+  const queryClient = useQueryClient();
   const [banksData, setBanksData] = useState<BankData[]>(() => {
     const stored = localStorage.getItem('banksData');
     return stored ? JSON.parse(stored) : [];
@@ -82,6 +84,11 @@ export const BankDataProvider = ({ children }: { children: ReactNode }) => {
     
     setProgress({ phase: 'indicators', completed: indicators.length, total: indicators.length, currentIndicator: '' });
     toast.success('Alle indikatorer oppdatert!');
+    
+    // Invalider React Query cache for å tvinge refetch på sider
+    queryClient.invalidateQueries({ queryKey: ['regime-correlation'] });
+    queryClient.invalidateQueries({ queryKey: ['alpha-engine'] });
+    queryClient.invalidateQueries({ queryKey: ['outlier-radar'] });
   };
 
   const fetchData = async () => {
