@@ -68,7 +68,13 @@ export const Dashboard = () => {
               <Card className="p-6 bg-gradient-to-br from-card via-card to-accent/5 shadow-lg border-2">
                 <div className="mt-4">
                   <div className="text-sm text-muted-foreground mb-2">
-                    Laster data: {progress.completed} av {progress.total} banker
+                    {progress.phase === 'banks' ? (
+                      `Laster data: ${progress.completed} av ${progress.total} banker`
+                    ) : (
+                      `Oppdaterer indikatorer: ${progress.completed} av ${progress.total}${
+                        progress.currentIndicator ? ` (${progress.currentIndicator})` : ''
+                      }`
+                    )}
                   </div>
                   <div className="w-full bg-muted rounded-full h-2.5 overflow-hidden">
                     <div 
