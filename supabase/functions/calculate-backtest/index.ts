@@ -596,25 +596,47 @@ serve(async (req) => {
     const params: BacktestRequest = await req.json();
     console.log('Backtest request:', params);
 
-    // Step 1: Invoke signal calculation function
-    const signalFunctionName = getSignalFunctionName(params.signalName);
-    const daysNeeded = calculateDaysNeeded(params.startDate, params.endDate);
+    // Step 1: Fetch signals from database
+    console.log(`Fetching signals from database for ${params.signalName}...`);
     
-    console.log(`Invoking ${signalFunctionName} for ${daysNeeded} days...`);
-    const { data: signalResponse, error: signalError } = await supabase.functions.invoke(
-      signalFunctionName,
-      { body: { days: daysNeeded } }
-    );
-    
-    if (signalError) {
-      console.error('Signal function error:', signalError);
-      throw signalError;
+    const { data: dbSignals, error: dbError } = await supabase
+      .from('signal_history')
+      .select('*')
+      .eq('signal_type', params.signalName)
+      .gte('date', params.startDate)
+      .lte('date', params.endDate)
+      .order('date', { ascending: true });
+
+    if (dbError) {
+      console.error('Database error:', dbError);
+      throw new Error(`Failed to fetch signals from database: ${dbError.message}`);
     }
-    
-    console.log('Signal data received');
-    
-    // Step 2: Transform signal data to unified format
-    const unifiedSignals = transformSignalData(params.signalName, signalResponse, params.threshold);
+
+    if (!dbSignals || dbSignals.length === 0) {
+      return new Response(
+        JSON.stringify({
+          error: 'No historical signals found',
+          message: 'Please run the backfill function first to populate signal history',
+          suggestion: 'Call the backfill-signal-history function to initialize historical data'
+        }),
+        { 
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    console.log(`Found ${dbSignals.length} signals in database`);
+
+    // Step 2: Transform database signals to unified format and apply threshold
+    const unifiedSignals: UnifiedSignal[] = dbSignals
+      .filter(s => Math.abs(s.signal_value) >= params.threshold)
+      .map(s => ({
+        date: s.date,
+        ticker: s.ticker,
+        signalValue: s.signal_value,
+        price: 0 // Will be filled from price data
+      }));
     
     if (unifiedSignals.length === 0) {
       console.warn('No signals generated for the given threshold');
