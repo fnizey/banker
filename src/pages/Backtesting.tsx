@@ -176,17 +176,19 @@ const Backtesting = () => {
   return (
     <div className="container mx-auto p-6 space-y-6">
       {needsInitialization && (
-        <Alert>
-          <Database className="h-4 w-4" />
-          <AlertTitle>Initialize Historical Data</AlertTitle>
-          <AlertDescription className="space-y-2">
-            <p>No historical signal data found. You need to initialize the database with historical signals before running backtests.</p>
+        <Alert className="border-yellow-500 bg-yellow-50 dark:bg-yellow-950">
+          <Database className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+          <AlertTitle className="text-lg font-semibold">⚠️ Database Not Initialized</AlertTitle>
+          <AlertDescription className="space-y-3">
+            <p className="text-base">No historical signal data found. Click the button below to load 180 days of historical signals (~2-3 minutes).</p>
             <Button 
               onClick={initializeHistoricalData} 
               disabled={initializing}
               className="mt-2"
+              size="lg"
+              variant="default"
             >
-              {initializing ? "Initializing..." : "Initialize Data (180 days)"}
+              {initializing ? "⏳ Initializing... Please wait" : "🚀 Initialize Data (180 days)"}
             </Button>
           </AlertDescription>
         </Alert>
