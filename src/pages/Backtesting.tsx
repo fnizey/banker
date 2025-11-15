@@ -71,14 +71,28 @@ const Backtesting = () => {
 
   const checkDataAvailability = async () => {
     try {
-      const { count, error } = await supabase
+      const { data, error } = await supabase
         .from('signal_history')
-        .select('*', { count: 'exact', head: true });
+        .select('date, signal_type')
+        .order('date', { ascending: false })
+        .limit(1);
       
       if (error) throw error;
-      setNeedsInitialization(count === 0);
+      
+      // Check if we have data in the requested date range
+      const { count: rangeCount } = await supabase
+        .from('signal_history')
+        .select('*', { count: 'exact', head: true })
+        .gte('date', startDate)
+        .lte('date', endDate);
+      
+      console.log(`Found ${rangeCount} records in date range ${startDate} to ${endDate}`);
+      console.log('Latest record:', data?.[0]);
+      
+      setNeedsInitialization(!rangeCount || rangeCount === 0);
     } catch (error) {
       console.error('Error checking data:', error);
+      setNeedsInitialization(true);
     } finally {
       setCheckingData(false);
     }
@@ -178,18 +192,36 @@ const Backtesting = () => {
       {needsInitialization && (
         <Alert className="border-yellow-500 bg-yellow-50 dark:bg-yellow-950">
           <Database className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
-          <AlertTitle className="text-lg font-semibold">⚠️ Database Not Initialized</AlertTitle>
+          <AlertTitle className="text-lg font-semibold">⚠️ No Data for Selected Date Range</AlertTitle>
           <AlertDescription className="space-y-3">
-            <p className="text-base">No historical signal data found. Click the button below to load 180 days of historical signals (~2-3 minutes).</p>
-            <Button 
-              onClick={initializeHistoricalData} 
-              disabled={initializing}
-              className="mt-2"
-              size="lg"
-              variant="default"
-            >
-              {initializing ? "⏳ Initializing... Please wait" : "🚀 Initialize Data (180 days)"}
-            </Button>
+            <p className="text-base">No historical signals found for {startDate} to {endDate}.</p>
+            <p className="text-sm text-muted-foreground">
+              <strong>Important:</strong> The backfill function can only populate data from May 2025 onwards (when signals started). 
+              Please adjust your backtest dates to a more recent period.
+            </p>
+            <div className="flex gap-2">
+              <Button 
+                onClick={initializeHistoricalData} 
+                disabled={initializing}
+                size="lg"
+                variant="default"
+              >
+                {initializing ? "⏳ Initializing..." : "🚀 Load Recent Data (180 days)"}
+              </Button>
+              <Button 
+                onClick={() => {
+                  const recentEnd = new Date().toISOString().split('T')[0];
+                  const recentStart = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                  setStartDate(recentStart);
+                  setEndDate(recentEnd);
+                  checkDataAvailability();
+                }}
+                size="lg"
+                variant="outline"
+              >
+                Use Recent Dates
+              </Button>
+            </div>
           </AlertDescription>
         </Alert>
       )}
