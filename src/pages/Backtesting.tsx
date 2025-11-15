@@ -90,6 +90,8 @@ const Backtesting = () => {
       const endDate = new Date().toISOString().split('T')[0];
       const startDate = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
       
+      console.log('Starting historical data initialization...');
+      
       const { data, error } = await supabase.functions.invoke('backfill-signal-history', {
         body: {
           startDate,
@@ -98,11 +100,27 @@ const Backtesting = () => {
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Backfill error:', error);
+        throw error;
+      }
+      
+      console.log('Backfill response:', data);
+      
+      // Verify data was actually inserted
+      const { count } = await supabase
+        .from('signal_history')
+        .select('*', { count: 'exact', head: true });
+      
+      console.log('Records in database after initialization:', count);
+      
+      if (count === 0) {
+        throw new Error('No data was inserted. Please check the edge function logs.');
+      }
       
       toast({
-        title: "Data Initialized",
-        description: `Successfully loaded ${data.totalSignals} historical signals`
+        title: "Data Initialized Successfully!",
+        description: `Loaded ${data.totalSignals} signals across ${Object.keys(data.breakdown).length} signal types. ${count} records in database.`
       });
       
       setNeedsInitialization(false);
@@ -110,7 +128,7 @@ const Backtesting = () => {
       console.error('Initialization error:', error);
       toast({
         title: "Initialization Failed",
-        description: error instanceof Error ? error.message : 'Failed to initialize historical data',
+        description: error instanceof Error ? error.message : 'Failed to initialize historical data. Check console for details.',
         variant: "destructive"
       });
     } finally {
