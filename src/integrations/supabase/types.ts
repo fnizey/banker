@@ -14,7 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      signal_history: {
+        Row: {
+          created_at: string | null
+          date: string
+          id: string
+          metadata: Json | null
+          signal_type: string
+          signal_value: number | null
+          ticker: string
+        }
+        Insert: {
+          created_at?: string | null
+          date: string
+          id?: string
+          metadata?: Json | null
+          signal_type: string
+          signal_value?: number | null
+          ticker: string
+        }
+        Update: {
+          created_at?: string | null
+          date?: string
+          id?: string
+          metadata?: Json | null
+          signal_type?: string
+          signal_value?: number | null
+          ticker?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

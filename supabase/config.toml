@@ -35,3 +35,9 @@ verify_jwt = false
 
 [functions.calculate-backtest]
 verify_jwt = false
+
+[functions.capture-daily-signals]
+verify_jwt = false
+
+[functions.backfill-signal-history]
+verify_jwt = false
