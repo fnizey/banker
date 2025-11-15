@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -9,7 +9,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ScatterChart, Scatter } from "recharts";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { TrendingUp, TrendingDown } from "lucide-react";
+import { TrendingUp, TrendingDown, Database } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const SIGNAL_INFO: Record<string, { name: string; description: string; thresholdGuide: string }> = {
   'abnormal_volume': {
@@ -60,6 +61,62 @@ const Backtesting = () => {
   const [positionSizing, setPositionSizing] = useState('equal');
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<any>(null);
+  const [needsInitialization, setNeedsInitialization] = useState(false);
+  const [initializing, setInitializing] = useState(false);
+  const [checkingData, setCheckingData] = useState(true);
+
+  useEffect(() => {
+    checkDataAvailability();
+  }, []);
+
+  const checkDataAvailability = async () => {
+    try {
+      const { count, error } = await supabase
+        .from('signal_history')
+        .select('*', { count: 'exact', head: true });
+      
+      if (error) throw error;
+      setNeedsInitialization(count === 0);
+    } catch (error) {
+      console.error('Error checking data:', error);
+    } finally {
+      setCheckingData(false);
+    }
+  };
+
+  const initializeHistoricalData = async () => {
+    setInitializing(true);
+    try {
+      const endDate = new Date().toISOString().split('T')[0];
+      const startDate = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      
+      const { data, error } = await supabase.functions.invoke('backfill-signal-history', {
+        body: {
+          startDate,
+          endDate,
+          days: 180
+        }
+      });
+
+      if (error) throw error;
+      
+      toast({
+        title: "Data Initialized",
+        description: `Successfully loaded ${data.totalSignals} historical signals`
+      });
+      
+      setNeedsInitialization(false);
+    } catch (error) {
+      console.error('Initialization error:', error);
+      toast({
+        title: "Initialization Failed",
+        description: error instanceof Error ? error.message : 'Failed to initialize historical data',
+        variant: "destructive"
+      });
+    } finally {
+      setInitializing(false);
+    }
+  };
 
   const runBacktest = async () => {
     setLoading(true);
@@ -100,6 +157,23 @@ const Backtesting = () => {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
+      {needsInitialization && (
+        <Alert>
+          <Database className="h-4 w-4" />
+          <AlertTitle>Initialize Historical Data</AlertTitle>
+          <AlertDescription className="space-y-2">
+            <p>No historical signal data found. You need to initialize the database with historical signals before running backtests.</p>
+            <Button 
+              onClick={initializeHistoricalData} 
+              disabled={initializing}
+              className="mt-2"
+            >
+              {initializing ? "Initializing..." : "Initialize Data (180 days)"}
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+      
       <div className="space-y-2">
         <h1 className="text-3xl font-bold">Backtesting Framework</h1>
         <p className="text-muted-foreground">
@@ -208,11 +282,11 @@ const Backtesting = () => {
 
         <Button 
           onClick={runBacktest} 
-          disabled={loading}
+          disabled={loading || needsInitialization || checkingData}
           className="w-full"
           size="lg"
         >
-          {loading ? 'Running Backtest...' : 'Run Backtest'}
+          {loading ? 'Running Backtest...' : checkingData ? 'Checking data...' : 'Run Backtest'}
         </Button>
       </Card>
 
