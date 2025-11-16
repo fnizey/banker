@@ -25,6 +25,13 @@ const SIGNAL_FUNCTION_MAP: Record<string, string> = {
   'outlier_radar': 'calculate-outlier-radar'
 };
 
+const ALL_BANK_TICKERS = [
+  'DNB.OL', 'SB1NO.OL', 'SBNOR.OL', 'MING.OL', 'SPOL.OL', 'NONG.OL',
+  'MORG.OL', 'SPOG.OL', 'HELG.OL', 'ROGS.OL', 'RING.OL', 'SOAG.OL',
+  'SNOR.OL', 'HGSB.OL', 'JAREN.OL', 'AURG.OL', 'SKUE.OL', 'MELG.OL',
+  'SOGN.OL', 'HSPG.OL', 'VVL.OL', 'BIEN.OL'
+];
+
 interface SignalRecord {
   date: string;
   ticker: string;
@@ -161,14 +168,17 @@ function transformHistoricalSignalData(
         data.larsTimeSeries.forEach((item: any) => {
           const itemDate = new Date(item.date);
           if (itemDate >= start && itemDate <= end) {
-            signals.push({
-              date: item.date,
-              ticker: 'PORTFOLIO',
-              signal_type: signalType,
-              signal_value: item.lars,
-              metadata: {
-                interpretation: item.interpretation
-              }
+            // Expand sector-wide signal to all banks
+            ALL_BANK_TICKERS.forEach(ticker => {
+              signals.push({
+                date: item.date,
+                ticker,
+                signal_type: signalType,
+                signal_value: item.lars,
+                metadata: {
+                  interpretation: item.interpretation
+                }
+              });
             });
           }
         });
@@ -180,14 +190,17 @@ function transformHistoricalSignalData(
         data.rotationTimeSeries.forEach((item: any) => {
           const itemDate = new Date(item.date);
           if (itemDate >= start && itemDate <= end) {
-            signals.push({
-              date: item.date,
-              ticker: 'PORTFOLIO',
-              signal_type: signalType,
-              signal_value: item.rotationScore,
-              metadata: {
-                marketRegime: item.marketRegime
-              }
+            // Expand sector-wide signal to all banks
+            ALL_BANK_TICKERS.forEach(ticker => {
+              signals.push({
+                date: item.date,
+                ticker,
+                signal_type: signalType,
+                signal_value: item.rotationScore,
+                metadata: {
+                  marketRegime: item.marketRegime
+                }
+              });
             });
           }
         });
@@ -220,14 +233,17 @@ function transformHistoricalSignalData(
         data.vdiTimeSeries.forEach((item: any) => {
           const itemDate = new Date(item.date);
           if (itemDate >= start && itemDate <= end) {
-            signals.push({
-              date: item.date,
-              ticker: 'PORTFOLIO',
-              signal_type: signalType,
-              signal_value: item.vdi,
-              metadata: {
-                divergenceScore: item.divergenceScore
-              }
+            // Expand sector-wide signal to all banks
+            ALL_BANK_TICKERS.forEach(ticker => {
+              signals.push({
+                date: item.date,
+                ticker,
+                signal_type: signalType,
+                signal_value: item.vdi,
+                metadata: {
+                  divergenceScore: item.divergenceScore
+                }
+              });
             });
           }
         });
