@@ -12,41 +12,48 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { TrendingUp, TrendingDown, Database } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
-const SIGNAL_INFO: Record<string, { name: string; description: string; thresholdGuide: string }> = {
+const SIGNAL_INFO: Record<string, { name: string; description: string; thresholdGuide: string; isStockSpecific: boolean }> = {
   'abnormal_volume': {
     name: 'Abnormal Volume',
     description: 'Identifies banks with unusual trading activity',
-    thresholdGuide: 'Z-score threshold (2.0 = 2 std deviations, typically significant)'
+    thresholdGuide: 'Z-score threshold (2.0 = 2 std deviations, typically significant)',
+    isStockSpecific: true
   },
   'lars': {
     name: 'Liquidity-Adjusted Return Skew (LARS)',
     description: 'Sector-wide signal based on return distribution skewness',
-    thresholdGuide: 'LARS threshold (0.5 = moderate skew, triggers all banks)'
+    thresholdGuide: 'LARS threshold (0.5 = moderate skew, triggers all banks)',
+    isStockSpecific: false
   },
   'alpha_engine': {
     name: 'Alpha Engine',
     description: 'Multi-factor alpha score for individual banks',
-    thresholdGuide: 'BAS_EMA threshold (2.0 = strong alpha signal)'
+    thresholdGuide: 'BAS_EMA threshold (2.0 = strong alpha signal)',
+    isStockSpecific: true
   },
   'vdi': {
     name: 'Volatility Divergence Index (VDI)',
     description: 'Measures divergence in volatility patterns',
-    thresholdGuide: 'VDI threshold (1.0 = high volatility divergence)'
+    thresholdGuide: 'VDI threshold (1.0 = high volatility divergence)',
+    isStockSpecific: false
   },
   'ssi': {
     name: 'Sector Sentiment Index (SSI)',
     description: 'Composite sentiment indicator for banking sector',
-    thresholdGuide: 'SSI threshold (1.0 = positive sector sentiment)'
+    thresholdGuide: 'SSI threshold (1.0 = positive sector sentiment)',
+    isStockSpecific: false
   },
   'rotation': {
     name: 'Capital Rotation',
     description: 'Identifies rotation between small/mid/large cap banks',
-    thresholdGuide: 'Rotation strength threshold (1.0 = clear rotation signal)'
+    thresholdGuide: 'Rotation strength threshold (1.0 = clear rotation signal)',
+    isStockSpecific: false
   },
   'smfi': {
     name: 'Smart Money Flow Index (SMFI)',
     description: 'Tracks institutional money flow patterns',
-    thresholdGuide: 'SMFI threshold (1.0 = significant smart money inflow)'
+    thresholdGuide: 'SMFI threshold (1.0 = significant smart money inflow)',
+    isStockSpecific: false
   }
 };
 
@@ -63,6 +70,8 @@ const Backtesting = () => {
   const [maxPositions, setMaxPositions] = useState(5);
   const [holdingPeriod, setHoldingPeriod] = useState(5);
   const [positionSizing, setPositionSizing] = useState('equal');
+  const [useAlphaRanking, setUseAlphaRanking] = useState(true);
+  const [alphaMinThreshold, setAlphaMinThreshold] = useState(0.5);
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<any>(null);
   const [needsInitialization, setNeedsInitialization] = useState(false);
@@ -166,7 +175,9 @@ const Backtesting = () => {
           initialCapital,
           maxPositions,
           holdingPeriod,
-          positionSizing
+          positionSizing,
+          useAlphaRanking: !SIGNAL_INFO[signalName]?.isStockSpecific && useAlphaRanking,
+          alphaMinThreshold: !SIGNAL_INFO[signalName]?.isStockSpecific && useAlphaRanking ? alphaMinThreshold : undefined
         }
       });
 
@@ -336,7 +347,50 @@ const Backtesting = () => {
           </div>
         </div>
 
-        <Button 
+        {!SIGNAL_INFO[signalName]?.isStockSpecific && (
+          <div className="space-y-3 p-4 border rounded-lg bg-accent/30">
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="useAlphaRanking"
+                checked={useAlphaRanking}
+                onChange={(e) => setUseAlphaRanking(e.target.checked)}
+                className="rounded h-4 w-4"
+              />
+              <Label htmlFor="useAlphaRanking" className="font-semibold text-base cursor-pointer">
+                🎯 Use Alpha Engine for Stock Ranking
+              </Label>
+            </div>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              <strong>Multi-Signal Strategy:</strong> The primary signal ({currentSignalInfo.name}) acts as a sector filter. 
+              When the sector signal triggers, stocks are ranked by their <strong>Alpha Engine (BAS EMA)</strong> score, 
+              and only the top-ranked stocks with strong alpha are purchased.
+            </p>
+            
+            {useAlphaRanking && (
+              <div className="mt-3 space-y-2">
+                <Label htmlFor="alphaMinThreshold">Minimum Alpha Score (BAS EMA)</Label>
+                <div className="flex items-center space-x-4">
+                  <Slider
+                    id="alphaMinThreshold"
+                    min={-2}
+                    max={5}
+                    step={0.1}
+                    value={[alphaMinThreshold]}
+                    onValueChange={([value]) => setAlphaMinThreshold(value)}
+                    className="flex-1"
+                  />
+                  <span className="w-16 text-right font-mono text-sm font-semibold">{alphaMinThreshold.toFixed(1)}</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Stocks below this Alpha Engine score will be filtered out, even if the sector signal triggers
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        <Button
           onClick={runBacktest} 
           disabled={loading || needsInitialization || checkingData}
           className="w-full"
