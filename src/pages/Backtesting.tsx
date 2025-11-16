@@ -53,8 +53,12 @@ const SIGNAL_INFO: Record<string, { name: string; description: string; threshold
 const Backtesting = () => {
   const [signalName, setSignalName] = useState('abnormal_volume');
   const [threshold, setThreshold] = useState(2);
-  const [startDate, setStartDate] = useState('2024-05-01');
-  const [endDate, setEndDate] = useState('2024-11-14');
+  const [startDate, setStartDate] = useState(() => {
+    const date = new Date();
+    date.setDate(date.getDate() - 90);
+    return date.toISOString().split('T')[0];
+  });
+  const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [initialCapital, setInitialCapital] = useState(1000000);
   const [maxPositions, setMaxPositions] = useState(5);
   const [holdingPeriod, setHoldingPeriod] = useState(5);
