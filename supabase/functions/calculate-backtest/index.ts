@@ -34,6 +34,8 @@ interface BacktestRequest {
   maxPositions: number;
   holdingPeriod: number;
   positionSizing: string;
+  useAlphaRanking?: boolean;
+  alphaMinThreshold?: number;
 }
 
 interface UnifiedSignal {
@@ -387,7 +389,8 @@ function calculatePortfolioValue(
 async function simulatePortfolio(
   signals: UnifiedSignal[],
   priceMap: Map<string, Map<string, number>>,
-  config: BacktestRequest
+  config: BacktestRequest,
+  alphaScores?: Map<string, Map<string, number>> // date -> ticker -> alpha score
 ): Promise<{
   trades: Trade[];
   equityCurve: EquityCurvePoint[];
@@ -450,11 +453,32 @@ async function simulatePortfolio(
     }
     
     // 2. Open new positions (signals triggered)
-    const todaysSignals = signals
+    let todaysSignals = signals
       .filter(s => s.date === date && s.signalValue >= config.threshold)
       .filter(s => !activePositions.some(p => p.ticker === s.ticker));
     
-    todaysSignals.sort((a, b) => b.signalValue - a.signalValue);
+    // If alpha ranking is enabled, rank by alpha scores
+    if (alphaScores && config.useAlphaRanking) {
+      const alphaForDate = alphaScores.get(date);
+      if (alphaForDate) {
+        // Filter by minimum alpha threshold and add alpha scores
+        todaysSignals = todaysSignals
+          .map(s => ({
+            ...s,
+            alphaScore: alphaForDate.get(s.ticker) || -999
+          }))
+          .filter(s => s.alphaScore >= (config.alphaMinThreshold || -999))
+          .sort((a, b) => b.alphaScore - a.alphaScore);
+        
+        console.log(`${date}: ${todaysSignals.length} signals after alpha filtering (min: ${config.alphaMinThreshold})`);
+      } else {
+        console.log(`${date}: No alpha data available for ranking`);
+        todaysSignals.sort((a, b) => b.signalValue - a.signalValue);
+      }
+    } else {
+      // Default: rank by signal value
+      todaysSignals.sort((a, b) => b.signalValue - a.signalValue);
+    }
     
     const availableSlots = config.maxPositions - activePositions.length;
     const signalsToExecute = todaysSignals.slice(0, availableSlots);
@@ -642,11 +666,39 @@ serve(async (req) => {
       console.warn('No signals generated for the given threshold');
     }
     
-    // Step 3: Fetch historical prices for all tickers
+    // Step 3: Fetch alpha scores if alpha ranking is enabled
+    let alphaScores: Map<string, Map<string, number>> | undefined;
+    if (params.useAlphaRanking) {
+      console.log('Fetching alpha_engine scores for ranking...');
+      const { data: alphaData, error: alphaError } = await supabase
+        .from('signal_history')
+        .select('*')
+        .eq('signal_type', 'alpha_engine')
+        .gte('date', params.startDate)
+        .lte('date', params.endDate);
+      
+      if (!alphaError && alphaData && alphaData.length > 0) {
+        console.log(`Found ${alphaData.length} alpha_engine records`);
+        alphaScores = new Map();
+        
+        alphaData.forEach(record => {
+          if (!alphaScores!.has(record.date)) {
+            alphaScores!.set(record.date, new Map());
+          }
+          alphaScores!.get(record.date)!.set(record.ticker, record.signal_value);
+        });
+        
+        console.log(`Alpha scores loaded for ${alphaScores.size} dates`);
+      } else {
+        console.warn('No alpha_engine data found for ranking. Will use signal values instead.');
+      }
+    }
+    
+    // Step 4: Fetch historical prices for all tickers
     const allTickers = [...new Set(unifiedSignals.map(s => s.ticker))];
     const priceMap = await fetchHistoricalPrices(allTickers, params.startDate, params.endDate);
     
-    // Step 4: Fill in prices in unified signals
+    // Step 5: Fill in prices in unified signals
     unifiedSignals.forEach(signal => {
       if (signal.price === 0) {
         signal.price = priceMap.get(signal.ticker)?.get(signal.date) || 0;
@@ -657,14 +709,15 @@ serve(async (req) => {
     const validSignals = unifiedSignals.filter(s => s.price > 0);
     console.log(`Valid signals with prices: ${validSignals.length} / ${unifiedSignals.length}`);
     
-    // Step 5: Run portfolio simulation
+    // Step 6: Run portfolio simulation
     const { trades, equityCurve, finalCash, activePositions } = await simulatePortfolio(
       validSignals,
       priceMap,
-      params
+      params,
+      alphaScores
     );
     
-    // Step 6: Calculate trade metrics
+    // Step 7: Calculate trade metrics
     const tradeMetrics = calculateTradeMetrics(trades, equityCurve);
     
     // Step 7: Calculate backtest statistics
