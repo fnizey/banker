@@ -89,9 +89,11 @@ export default function Momentum() {
 
   const scatterData = data?.map((item) => ({
     ...item,
-    x: item[xAxis as keyof MomentumData] as number,
-    y: item[yAxis as keyof MomentumData] as number,
-  }));
+    name: item.name,
+    ticker: item.ticker,
+    x: Number(item[xAxis as keyof MomentumData]),
+    y: Number(item[yAxis as keyof MomentumData]),
+  })).filter(item => !isNaN(item.x) && !isNaN(item.y));
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -170,33 +172,45 @@ export default function Momentum() {
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={500}>
-                <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                <ScatterChart margin={{ top: 20, right: 30, bottom: 60, left: 60 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis
                     type="number"
                     dataKey="x"
                     name={INDICATORS.find((i) => i.value === xAxis)?.label}
-                    stroke="hsl(var(--muted-foreground))"
+                    stroke="hsl(var(--foreground))"
+                    label={{ 
+                      value: INDICATORS.find((i) => i.value === xAxis)?.label, 
+                      position: 'insideBottom', 
+                      offset: -10,
+                      style: { fill: 'hsl(var(--foreground))' }
+                    }}
                   />
                   <YAxis
                     type="number"
                     dataKey="y"
                     name={INDICATORS.find((i) => i.value === yAxis)?.label}
-                    stroke="hsl(var(--muted-foreground))"
+                    stroke="hsl(var(--foreground))"
+                    label={{ 
+                      value: INDICATORS.find((i) => i.value === yAxis)?.label, 
+                      angle: -90, 
+                      position: 'insideLeft',
+                      style: { fill: 'hsl(var(--foreground))' }
+                    }}
                   />
-                  <ZAxis range={[100, 100]} />
+                  <ZAxis range={[200, 200]} />
                   <Tooltip
                     content={({ active, payload }) => {
                       if (active && payload && payload.length) {
                         const data = payload[0].payload;
                         return (
                           <div className="bg-card border border-border rounded-lg p-3 shadow-lg">
-                            <p className="font-semibold mb-2">{BANK_NAMES[data.ticker]}</p>
+                            <p className="font-semibold mb-2">{data.name}</p>
                             <p className="text-sm">
-                              {INDICATORS.find((i) => i.value === xAxis)?.label}: {data.x.toFixed(2)}
+                              {INDICATORS.find((i) => i.value === xAxis)?.label}: {data.x?.toFixed(2)}
                             </p>
                             <p className="text-sm">
-                              {INDICATORS.find((i) => i.value === yAxis)?.label}: {data.y.toFixed(2)}
+                              {INDICATORS.find((i) => i.value === yAxis)?.label}: {data.y?.toFixed(2)}
                             </p>
                           </div>
                         );
@@ -204,9 +218,9 @@ export default function Momentum() {
                       return null;
                     }}
                   />
-                  <Scatter data={scatterData}>
+                  <Scatter data={scatterData} fill="hsl(var(--primary))">
                     {scatterData?.map((entry, index) => (
-                      <Cell key={index} fill={getColor(entry.y, yAxis)} />
+                      <Cell key={`cell-${index}`} fill={getColor(entry.y, yAxis)} />
                     ))}
                   </Scatter>
                 </ScatterChart>
