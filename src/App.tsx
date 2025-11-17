@@ -22,6 +22,7 @@ import SectorSentimentIndex from "./pages/SectorSentimentIndex";
 import AdvancedAnalytics from "./pages/AdvancedAnalytics";
 import AlphaOpportunity from "./pages/AlphaOpportunity";
 import Backtesting from "./pages/Backtesting";
+import Momentum from "./pages/Momentum";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -61,6 +62,7 @@ const App = () => (
             <Route path="/alpha-opportunity" element={<AlphaOpportunity />} />
             <Route path="/advanced-analytics" element={<AdvancedAnalytics />} />
             <Route path="/backtesting" element={<Backtesting />} />
+            <Route path="/momentum" element={<Momentum />} />
                       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                       <Route path="*" element={<NotFound />} />
                     </Routes>

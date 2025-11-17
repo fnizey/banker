@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.backfill-signal-history]
 verify_jwt = false
+
+[functions.calculate-momentum]
+verify_jwt = false
