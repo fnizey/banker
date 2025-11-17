@@ -63,14 +63,18 @@ export default function Momentum() {
   const { data, isLoading } = useQuery({
     queryKey: ["momentum", period],
     queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke("calculate-momentum", {
+      const { data: responseData, error } = await supabase.functions.invoke("calculate-momentum", {
         body: { days: period },
       });
       if (error) throw error;
-      return data.momentum as MomentumData[];
+      console.log("Momentum data received:", responseData);
+      return responseData?.momentum as MomentumData[];
     },
     refetchInterval: 5 * 60 * 1000, // 5 minutes
   });
+
+  console.log("useQuery data:", data);
+  console.log("isLoading:", isLoading);
 
   const getColor = (value: number, indicator: string) => {
     if (indicator === "rsi") {
@@ -94,6 +98,9 @@ export default function Momentum() {
     x: Number(item[xAxis as keyof MomentumData]),
     y: Number(item[yAxis as keyof MomentumData]),
   })).filter(item => !isNaN(item.x) && !isNaN(item.y));
+
+  console.log("Scatter data points:", scatterData?.length);
+  console.log("Sample point:", scatterData?.[0]);
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -171,60 +178,66 @@ export default function Momentum() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={500}>
-                <ScatterChart margin={{ top: 20, right: 30, bottom: 60, left: 60 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis
-                    type="number"
-                    dataKey="x"
-                    name={INDICATORS.find((i) => i.value === xAxis)?.label}
-                    stroke="hsl(var(--foreground))"
-                    label={{ 
-                      value: INDICATORS.find((i) => i.value === xAxis)?.label, 
-                      position: 'insideBottom', 
-                      offset: -10,
-                      style: { fill: 'hsl(var(--foreground))' }
-                    }}
-                  />
-                  <YAxis
-                    type="number"
-                    dataKey="y"
-                    name={INDICATORS.find((i) => i.value === yAxis)?.label}
-                    stroke="hsl(var(--foreground))"
-                    label={{ 
-                      value: INDICATORS.find((i) => i.value === yAxis)?.label, 
-                      angle: -90, 
-                      position: 'insideLeft',
-                      style: { fill: 'hsl(var(--foreground))' }
-                    }}
-                  />
-                  <ZAxis range={[200, 200]} />
-                  <Tooltip
-                    content={({ active, payload }) => {
-                      if (active && payload && payload.length) {
-                        const data = payload[0].payload;
-                        return (
-                          <div className="bg-card border border-border rounded-lg p-3 shadow-lg">
-                            <p className="font-semibold mb-2">{data.name}</p>
-                            <p className="text-sm">
-                              {INDICATORS.find((i) => i.value === xAxis)?.label}: {data.x?.toFixed(2)}
-                            </p>
-                            <p className="text-sm">
-                              {INDICATORS.find((i) => i.value === yAxis)?.label}: {data.y?.toFixed(2)}
-                            </p>
-                          </div>
-                        );
-                      }
-                      return null;
-                    }}
-                  />
-                  <Scatter data={scatterData} fill="hsl(var(--primary))">
-                    {scatterData?.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={getColor(entry.y, yAxis)} />
-                    ))}
-                  </Scatter>
-                </ScatterChart>
-              </ResponsiveContainer>
+              {!scatterData || scatterData.length === 0 ? (
+                <div className="h-96 flex items-center justify-center text-muted-foreground">
+                  Ingen data tilgjengelig for valgt periode
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={500}>
+                  <ScatterChart margin={{ top: 20, right: 30, bottom: 60, left: 60 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis
+                      type="number"
+                      dataKey="x"
+                      name={INDICATORS.find((i) => i.value === xAxis)?.label}
+                      stroke="hsl(var(--foreground))"
+                      label={{ 
+                        value: INDICATORS.find((i) => i.value === xAxis)?.label, 
+                        position: 'insideBottom', 
+                        offset: -10,
+                        style: { fill: 'hsl(var(--foreground))' }
+                      }}
+                    />
+                    <YAxis
+                      type="number"
+                      dataKey="y"
+                      name={INDICATORS.find((i) => i.value === yAxis)?.label}
+                      stroke="hsl(var(--foreground))"
+                      label={{ 
+                        value: INDICATORS.find((i) => i.value === yAxis)?.label, 
+                        angle: -90, 
+                        position: 'insideLeft',
+                        style: { fill: 'hsl(var(--foreground))' }
+                      }}
+                    />
+                    <ZAxis range={[200, 200]} />
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0].payload;
+                          return (
+                            <div className="bg-card border border-border rounded-lg p-3 shadow-lg">
+                              <p className="font-semibold mb-2">{data.name}</p>
+                              <p className="text-sm">
+                                {INDICATORS.find((i) => i.value === xAxis)?.label}: {data.x?.toFixed(2)}
+                              </p>
+                              <p className="text-sm">
+                                {INDICATORS.find((i) => i.value === yAxis)?.label}: {data.y?.toFixed(2)}
+                              </p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Scatter data={scatterData} fill="hsl(var(--primary))">
+                      {scatterData?.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={getColor(entry.y, yAxis)} />
+                      ))}
+                    </Scatter>
+                  </ScatterChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
 
