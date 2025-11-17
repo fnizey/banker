@@ -21,7 +21,8 @@ const mainItems = [
 ];
 
 const analysisItems = [
-  { title: "Backtesting", url: "/backtesting", icon: Activity },
+  // { title: "Backtesting", url: "/backtesting", icon: Activity }, // Hidden per user request
+  { title: "Momentum", url: "/momentum", icon: TrendingUp },
   { title: "Advanced Analytics", url: "/advanced-analytics", icon: Zap },
   { title: "SSI", url: "/ssi", icon: TrendingUp },
   { title: "Alpha Opportunity", url: "/alpha-opportunity", icon: Zap },
