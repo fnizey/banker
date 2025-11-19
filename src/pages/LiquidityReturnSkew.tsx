@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
+import { exportMultipleSheets } from '@/utils/excelExport';
 
 interface LARSData {
   date: string;
@@ -58,6 +60,22 @@ const LiquidityReturnSkew = () => {
   useEffect(() => {
     fetchLARSData();
   }, [selectedDays]);
+
+  const handleExport = () => {
+    if (!larsData || larsData.length === 0) return;
+    
+    const timeSeriesData = larsData.map(d => ({
+      Dato: d.date,
+      LARS: d.lars.toFixed(3),
+      Skewness: d.skewness.toFixed(3),
+      'Avg Normalized Turnover': d.avgNormalizedTurnover.toFixed(3),
+      'LARS Kumulativ': d.larsCumulative.toFixed(3),
+    }));
+    
+    exportMultipleSheets([
+      { name: 'LARS Tidsserier', data: timeSeriesData },
+    ], `LARS_${selectedDays}dager`);
+  };
 
   const getInterpretation = (lars: number | null) => {
     if (!lars) return { text: 'Ingen data', color: 'text-muted-foreground', sentiment: 'Ukjent' };
@@ -118,6 +136,10 @@ const LiquidityReturnSkew = () => {
               disabled={loading}
             >
               365 dager
+            </Button>
+            <Button onClick={handleExport} disabled={!larsData || larsData.length === 0} variant="outline">
+              <Download className="mr-2 h-4 w-4" />
+              Last ned Excel
             </Button>
           </div>
         </div>

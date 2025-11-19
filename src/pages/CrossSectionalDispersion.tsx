@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, TrendingUp, TrendingDown } from 'lucide-react';
+import { RefreshCw, TrendingUp, TrendingDown, Download } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
+import { exportMultipleSheets } from '@/utils/excelExport';
 
 interface DispersionData {
   date: string;
@@ -65,6 +66,35 @@ const CrossSectionalDispersion = () => {
   useEffect(() => {
     fetchDispersionData();
   }, [selectedDays]);
+
+  const handleExport = () => {
+    if (!dispersionData || dispersionData.length === 0) return;
+    
+    const timeSeriesData = dispersionData.map(d => ({
+      Dato: d.date,
+      Dispersion: d.dispersion.toFixed(3),
+    }));
+    
+    const performersData = [
+      ...topPerformers.map(p => ({
+        Kategori: 'Topp',
+        Bank: p.name,
+        Ticker: p.ticker,
+        'Daglig Avkastning': p.dailyReturn.toFixed(3),
+      })),
+      ...bottomPerformers.map(p => ({
+        Kategori: 'Bunn',
+        Bank: p.name,
+        Ticker: p.ticker,
+        'Daglig Avkastning': p.dailyReturn.toFixed(3),
+      })),
+    ];
+    
+    exportMultipleSheets([
+      { name: 'Dispersion', data: timeSeriesData },
+      { name: 'Performers', data: performersData },
+    ], `CrossSectionalDispersion_${selectedDays}dager`);
+  };
 
   const getInterpretation = (dispersion: number) => {
     if (dispersion < 0.4) {
@@ -157,10 +187,16 @@ const CrossSectionalDispersion = () => {
                 365 dager
               </Button>
             </div>
-            <Button onClick={fetchDispersionData} disabled={loading} className="shadow-lg hover:shadow-xl transition-shadow">
-              <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              Oppdater
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={handleExport} disabled={!dispersionData || dispersionData.length === 0} variant="outline">
+                <Download className="mr-2 h-4 w-4" />
+                Last ned Excel
+              </Button>
+              <Button onClick={fetchDispersionData} disabled={loading} className="shadow-lg hover:shadow-xl transition-shadow">
+                <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                Oppdater
+              </Button>
+            </div>
           </div>
         </div>
 

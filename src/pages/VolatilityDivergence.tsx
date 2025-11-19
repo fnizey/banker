@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
+import { exportToExcel } from '@/utils/excelExport';
 
 interface VDIData {
   date: string;
@@ -46,6 +48,19 @@ const VolatilityDivergence = () => {
   useEffect(() => {
     fetchVDIData();
   }, [selectedDays]);
+
+  const handleExport = () => {
+    if (!vdiData || vdiData.length === 0) return;
+    
+    const exportData = vdiData.map(d => ({
+      Dato: d.date,
+      VDI: d.vdi.toFixed(3),
+      'Volatility Ratio': d.volatilityRatio.toFixed(3),
+      'Turnover Ratio': d.turnoverRatio.toFixed(3),
+    }));
+    
+    exportToExcel(exportData, `VDI_${selectedDays}dager`, 'Volatility Divergence');
+  };
 
   const getInterpretation = (vdi: number | null) => {
     if (!vdi) return { text: 'Ingen data', color: 'text-muted-foreground' };
@@ -94,6 +109,10 @@ const VolatilityDivergence = () => {
               disabled={loading}
             >
               365 dager
+            </Button>
+            <Button onClick={handleExport} disabled={!vdiData || vdiData.length === 0} variant="outline">
+              <Download className="mr-2 h-4 w-4" />
+              Last ned Excel
             </Button>
           </div>
         </div>

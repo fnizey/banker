@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { RefreshCw, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, Download } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
+import { exportToExcel } from '@/utils/excelExport';
 
 interface RotationData {
   date: string;
@@ -79,6 +80,21 @@ const CapitalRotation = () => {
     fetchRotationData();
   }, []);
 
+  const handleExport = () => {
+    if (!rotationData || rotationData.length === 0) return;
+    
+    const exportData = rotationData.map(d => ({
+      Dato: d.date,
+      'Return Rotation': d.returnRotation.toFixed(3),
+      'Turnover Rotation': d.turnoverRotation.toFixed(3),
+      'Combined Rotation': d.combinedRotation.toFixed(3),
+      'Smooth Rotation': d.smoothRotation.toFixed(3),
+      'Cumulative Rotation': d.cumulativeRotation.toFixed(3),
+    }));
+    
+    exportToExcel(exportData, 'Kapitalrotasjon', 'Rotation Data');
+  };
+
   const getInterpretation = (value: number) => {
     if (value > 0.5) {
       return {
@@ -115,10 +131,16 @@ const CapitalRotation = () => {
               Måler kapitalflyt mellom store og små banker basert på avkastning og normalisert omsetning
             </p>
           </div>
-          <Button onClick={fetchRotationData} disabled={loading} className="shadow-lg hover:shadow-xl transition-shadow">
-            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            Oppdater data
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={handleExport} disabled={!rotationData || rotationData.length === 0} variant="outline">
+              <Download className="mr-2 h-4 w-4" />
+              Last ned Excel
+            </Button>
+            <Button onClick={fetchRotationData} disabled={loading} className="shadow-lg hover:shadow-xl transition-shadow">
+              <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              Oppdater data
+            </Button>
+          </div>
         </div>
 
         <div className="space-y-6">
