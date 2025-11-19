@@ -14,6 +14,7 @@ import { Navigation } from './Navigation';
 import { NewsFeed } from './NewsFeed';
 import { CurrencyRates } from './CurrencyRates';
 import { SSBNewsFeed } from './SSBNewsFeed';
+import { MarketSentimentOverview } from './MarketSentimentOverview';
 
 export const Dashboard = () => {
   const { banksData, loading, lastUpdated, progress, fetchData } = useBankData();
@@ -129,6 +130,9 @@ export const Dashboard = () => {
                       <PeriodSelector selected={selectedPeriod} onChange={setSelectedPeriod} />
                     </div>
                   </Card>
+
+                  {/* Market Sentiment Overview */}
+                  <MarketSentimentOverview />
 
                   <div className="grid md:grid-cols-2 gap-6">
                     {/* Top Gainers */}
