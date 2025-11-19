@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
+import { exportToExcel } from '@/utils/excelExport';
 
 interface SMFIData {
   date: string;
@@ -69,6 +71,21 @@ const SmartMoneyFlow = () => {
     fetchSMFIData();
   }, [selectedDays]);
 
+  const handleExport = () => {
+    if (!smfiData || smfiData.length === 0) return;
+    
+    const exportData = smfiData.map(d => ({
+      Dato: d.date,
+      SMFI: d.smfi.toFixed(3),
+      'SMFI Kumulativ': d.cumulativeSMFI.toFixed(3),
+      'Rotation Z-Score': d.rotationZScore.toFixed(3),
+      'VDI Z-Score': d.vdiZScore.toFixed(3),
+      'LARS Z-Score': d.larsZScore.toFixed(3),
+    }));
+    
+    exportToExcel(exportData, `SMFI_${selectedDays}dager`, 'Smart Money Flow');
+  };
+
   const getSentimentColor = (sentiment: string) => {
     if (sentiment.includes('Risk-off') || sentiment.includes('Defensiv')) return 'text-red-500';
     if (sentiment.includes('Risk-on') || sentiment.includes('Offensiv')) return 'text-green-500';
@@ -121,6 +138,10 @@ const SmartMoneyFlow = () => {
               disabled={loading}
             >
               365 dager
+            </Button>
+            <Button onClick={handleExport} disabled={!smfiData || smfiData.length === 0} variant="outline">
+              <Download className="mr-2 h-4 w-4" />
+              Last ned Excel
             </Button>
           </div>
         </div>

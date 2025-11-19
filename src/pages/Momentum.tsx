@@ -4,8 +4,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ZAxis } from "recharts";
+import { exportToExcel } from "@/utils/excelExport";
 
 type MomentumData = {
   ticker: string;
@@ -76,6 +79,25 @@ export default function Momentum() {
   console.log("useQuery data:", data);
   console.log("isLoading:", isLoading);
 
+  const handleExport = () => {
+    if (!data || data.length === 0) return;
+    
+    const exportData = data.map(row => ({
+      Bank: BANK_NAMES[row.ticker],
+      Ticker: row.ticker,
+      Pris: row.current_price.toFixed(2),
+      MACD: row.macd.toFixed(3),
+      'MACD Signal': row.macd_signal.toFixed(3),
+      'MACD Histogram': row.macd_histogram.toFixed(3),
+      RSI: row.rsi.toFixed(1),
+      MA50: row.ma50.toFixed(2),
+      MA200: row.ma200.toFixed(2),
+      'Golden Cross (%)': row.golden_cross.toFixed(1),
+    }));
+    
+    exportToExcel(exportData, `Momentum_${period}dager`, 'Momentum Indikatorer');
+  };
+
   const getColor = (value: number, indicator: string) => {
     if (indicator === "rsi") {
       if (value > 70) return "hsl(var(--destructive))";
@@ -111,7 +133,7 @@ export default function Momentum() {
         </p>
       </div>
 
-      <div className="flex gap-4 items-center">
+      <div className="flex gap-4 items-center flex-wrap">
         <Select value={period.toString()} onValueChange={(v) => setPeriod(parseInt(v) as Period)}>
           <SelectTrigger className="w-40">
             <SelectValue />
@@ -122,6 +144,11 @@ export default function Momentum() {
             <SelectItem value="365">Siste 365 dager</SelectItem>
           </SelectContent>
         </Select>
+
+        <Button onClick={handleExport} disabled={!data || data.length === 0} variant="outline">
+          <Download className="mr-2 h-4 w-4" />
+          Last ned Excel
+        </Button>
 
         <div className="flex gap-2 items-center">
           <span className="text-sm text-muted-foreground">X-akse:</span>

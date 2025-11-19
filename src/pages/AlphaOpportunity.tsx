@@ -2,10 +2,12 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
+import { Download } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { motion } from 'framer-motion';
+import { exportMultipleSheets } from '@/utils/excelExport';
 
 interface SSIData {
   ssiEMA: number;
@@ -293,6 +295,29 @@ const AlphaOpportunity = () => {
     fetchAORIData();
   }, [selectedDays]);
 
+  const handleExport = () => {
+    if (!aoriTimeSeries || aoriTimeSeries.length === 0) return;
+    
+    const timeSeriesData = aoriTimeSeries.map(d => ({
+      Dato: d.date,
+      AORI: d.aori.toFixed(2),
+      Tolkning: d.interpretation,
+    }));
+    
+    const componentData = components.map(c => ({
+      Faktor: c.factor,
+      Verdi: c.value.toFixed(3),
+      Normalisert: c.normalized.toFixed(3),
+      Vekt: c.weight.toFixed(2),
+      Bidrag: c.contribution.toFixed(2),
+    }));
+    
+    exportMultipleSheets([
+      { name: 'AORI Tidsserier', data: timeSeriesData },
+      { name: 'Komponenter', data: componentData },
+    ], `AORI_${selectedDays}dager`);
+  };
+
   const fetchAORIData = async () => {
     setLoading(true);
     try {
@@ -427,6 +452,10 @@ const AlphaOpportunity = () => {
               {days}d
             </Button>
           ))}
+          <Button onClick={handleExport} disabled={!aoriTimeSeries || aoriTimeSeries.length === 0} variant="outline" size="sm">
+            <Download className="mr-2 h-4 w-4" />
+            Excel
+          </Button>
         </div>
       </div>
 

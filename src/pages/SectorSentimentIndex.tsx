@@ -3,8 +3,10 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import { Download } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Area, AreaChart } from 'recharts';
+import { exportMultipleSheets } from '@/utils/excelExport';
 
 interface SSIData {
   date: string;
@@ -83,6 +85,27 @@ const SectorSentimentIndex = () => {
   useEffect(() => {
     fetchSSIData();
   }, [selectedDays]);
+
+  const handleExport = () => {
+    if (!ssiData || ssiData.length === 0) return;
+    
+    const timeSeriesData = ssiData.map(d => ({
+      Dato: d.date,
+      'SSI Raw': d.ssiRaw.toFixed(3),
+      'SSI EMA': d.ssiEMA.toFixed(3),
+      'SSI Kumulativ': d.ssiCumulative.toFixed(3),
+      CSD: d.components.csd.toFixed(3),
+      Rotasjon: d.components.rotation.toFixed(3),
+      VDI: d.components.vdi.toFixed(3),
+      LARS: d.components.lars.toFixed(3),
+      SMFI: d.components.smfi.toFixed(3),
+      'Relativ Ytelse': d.components.relativePerformance.toFixed(3),
+    }));
+    
+    exportMultipleSheets([
+      { name: 'SSI Tidsserier', data: timeSeriesData },
+    ], `SSI_${selectedDays}dager`);
+  };
 
   const getSentimentColor = (sentiment: string) => {
     if (sentiment.includes('Risk-off') || sentiment.includes('Defensiv')) return 'text-red-500';
@@ -164,6 +187,10 @@ const SectorSentimentIndex = () => {
               disabled={loading}
             >
               365 dager
+            </Button>
+            <Button onClick={handleExport} disabled={!ssiData || ssiData.length === 0} variant="outline">
+              <Download className="mr-2 h-4 w-4" />
+              Last ned Excel
             </Button>
           </div>
         </div>
