@@ -12,7 +12,6 @@ interface MarketSentiment {
   overallScore: number; // 0-100
   indicators: {
     ssi: { value: number; sentiment: string; };
-    aori: { value: number; interpretation: string; };
     smfi: { value: number; sentiment: string; };
     vdi: { value: number; };
     lars: { value: number; };
@@ -80,39 +79,30 @@ export const MarketSentimentOverview = () => {
         throw new Error('Missing indicator data - one or more indicators returned undefined');
       }
 
-      // Calculate AORI from components
-      const ssiNormForAORI = Math.max(0, Math.min(100, 50 - ssiData * 10));
-      const smfiNormForAORI = Math.max(0, Math.min(100, 50 - smfiData * 10));
-      const vdiNormForAORI = Math.max(0, Math.min(100, (2 - vdiData) * 50));
-      const larsNormForAORI = Math.max(0, Math.min(100, 50 + larsData * 25));
-      const aoriValue = (ssiNormForAORI + smfiNormForAORI + vdiNormForAORI + larsNormForAORI) / 4;
-      
-      const aoriInterpretation = aoriValue > 70 ? 'High alpha' : aoriValue > 35 ? 'Moderate' : 'Low alpha';
-
-      // Calculate overall sentiment score (0-100)
+      // Calculate overall sentiment score (0-100) based on real indicators
+      // SSI: negative = bullish, positive = bearish
       const ssiNorm = Math.max(0, Math.min(100, 50 - ssiData * 10));
-      const aoriNorm = aoriValue;
-      const smfiNorm = Math.max(0, Math.min(100, 50 - smfiData * 10));
+      
+      // SMFI: negative = risk-on (small bank flow), positive = risk-off
+      const smfiNorm = Math.max(0, Math.min(100, 50 - smfiData * 5));
+      
+      // VDI: < 1 = normal, > 1 = stress in small banks
       const vdiNorm = Math.max(0, Math.min(100, (2 - vdiData) * 50));
-      const larsNorm = Math.max(0, Math.min(100, 50 + larsData * 25));
+      
+      // LARS: positive = risk-on, negative = risk-off
+      const larsNorm = Math.max(0, Math.min(100, 50 + larsData * 10));
 
-      const overallScore = (ssiNorm + aoriNorm + smfiNorm + vdiNorm + larsNorm) / 5;
+      const overallScore = (ssiNorm + smfiNorm + vdiNorm + larsNorm) / 4;
 
       // Determine overall sentiment
       let overall: 'Risk-on' | 'Neutral' | 'Risk-off' = 'Neutral';
       if (overallScore > 60) overall = 'Risk-on';
       else if (overallScore < 40) overall = 'Risk-off';
 
-      // Generate alerts
+      // Generate alerts based on real indicator thresholds
       const alerts: Array<{ type: 'positive' | 'negative' | 'neutral'; message: string; }> = [];
       
-      if (aoriValue > 70) {
-        alerts.push({ type: 'positive', message: 'Høy alpha mulighet i markedet' });
-      } else if (aoriValue < 35) {
-        alerts.push({ type: 'negative', message: 'Begrenset alpha mulighet' });
-      }
-      
-      if (Math.abs(smfiData) > 1) {
+      if (Math.abs(smfiData) > 2) {
         alerts.push({
           type: smfiData > 1 ? 'negative' : 'positive',
           message: `Smart Money flyter ${smfiData > 1 ? 'defensivt' : 'offensivt'}`
@@ -143,7 +133,6 @@ export const MarketSentimentOverview = () => {
         overallScore,
         indicators: {
           ssi: { value: ssiData, sentiment: ssiSentiment },
-          aori: { value: aoriValue, interpretation: aoriInterpretation },
           smfi: { value: smfiData, sentiment: smfiSentiment },
           vdi: { value: vdiData },
           lars: { value: larsData },
@@ -257,20 +246,12 @@ export const MarketSentimentOverview = () => {
           </div>
 
           {/* Indicator Cards Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Card className="p-4 text-center">
               <div className="text-xs text-muted-foreground mb-1">SSI</div>
               <div className="text-2xl font-bold">{sentiment.indicators.ssi.value.toFixed(2)}</div>
               <Badge variant="outline" className="mt-2 text-xs">
                 {sentiment.indicators.ssi.sentiment}
-              </Badge>
-            </Card>
-
-            <Card className="p-4 text-center">
-              <div className="text-xs text-muted-foreground mb-1">AORI</div>
-              <div className="text-2xl font-bold">{sentiment.indicators.aori.value.toFixed(0)}</div>
-              <Badge variant="outline" className="mt-2 text-xs">
-                {sentiment.indicators.aori.interpretation}
               </Badge>
             </Card>
 
