@@ -9,8 +9,9 @@ import { motion } from 'framer-motion';
 
 interface MarketSentiment {
   overall: 'Risk-on' | 'Neutral' | 'Risk-off';
-  overallScore: number; // 0-100
+  overallScore: number; // 0-100 (AORI)
   indicators: {
+    aori: { value: number; interpretation: string; };
     ssi: { value: number; sentiment: string; };
     smfi: { value: number; sentiment: string; };
     vdi: { value: number; };
@@ -35,17 +36,19 @@ export const MarketSentimentOverview = () => {
     try {
       console.log('🔄 Fetching market sentiment data...');
       
-      const [ssiRes, smfiRes, vdiRes, larsRes] = await Promise.all([
-        supabase.functions.invoke('calculate-ssi', { body: { days: 30 } }),
-        supabase.functions.invoke('calculate-smfi', { body: { days: 30 } }),
-        supabase.functions.invoke('calculate-vdi', { body: { days: 30 } }),
-        supabase.functions.invoke('calculate-lars', { body: { days: 30 } }),
+      const [ssiRes, smfiRes, vdiRes, larsRes, regimeRes] = await Promise.all([
+        supabase.functions.invoke('calculate-ssi', { body: { days: 90 } }),
+        supabase.functions.invoke('calculate-smfi', { body: { days: 90 } }),
+        supabase.functions.invoke('calculate-vdi', { body: { days: 90 } }),
+        supabase.functions.invoke('calculate-lars', { body: { days: 90 } }),
+        supabase.functions.invoke('calculate-regime-correlation', { body: { days: 90 } }),
       ]);
 
       console.log('📊 SSI Response:', ssiRes);
       console.log('📊 SMFI Response:', smfiRes);
       console.log('📊 VDI Response:', vdiRes);
       console.log('📊 LARS Response:', larsRes);
+      console.log('📊 Regime Response:', regimeRes);
 
       // Check for errors
       if (ssiRes.error) {
@@ -64,35 +67,82 @@ export const MarketSentimentOverview = () => {
         console.error('❌ LARS Error:', larsRes.error);
         throw new Error(`LARS: ${larsRes.error.message}`);
       }
+      if (regimeRes.error) {
+        console.error('❌ Regime Error:', regimeRes.error);
+        throw new Error(`Regime: ${regimeRes.error.message}`);
+      }
 
       // Extract latest values - NO FALLBACKS, must have real data
       const ssiData = ssiRes.data?.currentSSI?.ssiEMA;
       const ssiSentiment = ssiRes.data?.sentiment;
+      const ssiDelta5d = ssiRes.data?.fiveDayChange || 0;
       const smfiData = smfiRes.data?.currentSMFI?.smfi;
       const smfiSentiment = smfiRes.data?.sentiment;
       const vdiData = vdiRes.data?.currentVDI?.vdi;
-      const larsData = larsRes.data?.currentLARS?.lars;
+      const larsData = larsRes.data?.currentLARS?.larsCumulative;
+      const regimeData = regimeRes.data?.timeSeries?.[regimeRes.data.timeSeries.length - 1];
 
-      console.log('✅ Extracted values:', { ssiData, smfiData, vdiData, larsData });
+      console.log('✅ Extracted values:', { ssiData, smfiData, vdiData, larsData, regimeData });
 
-      if (ssiData === undefined || smfiData === undefined || vdiData === undefined || larsData === undefined) {
+      if (ssiData === undefined || smfiData === undefined || vdiData === undefined || larsData === undefined || !regimeData) {
         throw new Error('Missing indicator data - one or more indicators returned undefined');
       }
 
-      // Calculate overall sentiment score (0-100) based on real indicators
-      // SSI: negative = bullish, positive = bearish
-      const ssiNorm = Math.max(0, Math.min(100, 50 - ssiData * 10));
-      
-      // SMFI: negative = risk-on (small bank flow), positive = risk-off
-      const smfiNorm = Math.max(0, Math.min(100, 50 - smfiData * 5));
-      
-      // VDI: < 1 = normal, > 1 = stress in small banks
-      const vdiNorm = Math.max(0, Math.min(100, (2 - vdiData) * 50));
-      
-      // LARS: positive = risk-on, negative = risk-off
-      const larsNorm = Math.max(0, Math.min(100, 50 + larsData * 10));
+      // Calculate AORI using same methodology as AlphaOpportunity page
+      const fisherZ = (r: number): number => {
+        const clipped = Math.max(-0.999, Math.min(0.999, r));
+        return 0.5 * Math.log((1 + clipped) / (1 - clipped));
+      };
 
-      const overallScore = (ssiNorm + smfiNorm + vdiNorm + larsNorm) / 4;
+      const logit = (p: number): number => {
+        const clipped = Math.max(0.001, Math.min(0.999, p));
+        return Math.log(clipped / (1 - clipped));
+      };
+
+      // Component 1: Sentiment = SSI_EMA + 5-day delta
+      const sentimentRaw = ssiData + ssiDelta5d;
+      
+      // Component 2: Correlation Dispersion = Fisher-z(XCI) - Fisher-z(CC)
+      const corrDispRaw = fisherZ(regimeData.xci) - fisherZ(regimeData.cc);
+      
+      // Component 3: Liquidity Breadth = logit(FBI)
+      const liqBreadthRaw = logit(regimeData.fbi / 100);
+      
+      // Component 4: Asymmetry = LARS (cumulative)
+      const asymmetryRaw = larsData;
+      
+      // Component 5: Rotation = SMFI (inverted later)
+      const rotationRaw = smfiData;
+
+      // Simple normalization using tanh for AORI calculation
+      const normSentiment = 0.5 + 0.5 * Math.tanh(sentimentRaw / 2);
+      const normCorrDisp = 0.5 + 0.5 * Math.tanh(corrDispRaw / 2);
+      const normLiqBreadth = 0.5 + 0.5 * Math.tanh(liqBreadthRaw / 2);
+      const normAsymmetry = 0.5 + 0.5 * Math.tanh(asymmetryRaw / 5);
+      const normRotation = 1 - (0.5 + 0.5 * Math.tanh(rotationRaw / 3)); // Inverted
+
+      // Weighted AORI (same weights as AlphaOpportunity)
+      const weights = { sentiment: 0.25, corrDisp: 0.25, liqBreadth: 0.20, asymmetry: 0.15, rotation: 0.15 };
+      const aoriValue = Math.max(0, Math.min(100, 100 * (
+        weights.sentiment * normSentiment +
+        weights.corrDisp * normCorrDisp +
+        weights.liqBreadth * normLiqBreadth +
+        weights.asymmetry * normAsymmetry +
+        weights.rotation * normRotation
+      )));
+
+      const aoriInterpretation = aoriValue > 75 
+        ? 'High alpha' 
+        : aoriValue > 55 
+        ? 'Moderate' 
+        : aoriValue > 35 
+        ? 'Neutral' 
+        : 'Low alpha';
+
+      console.log('✅ Calculated AORI:', aoriValue.toFixed(1));
+
+      // Calculate overall sentiment score using AORI and key indicators
+      const overallScore = aoriValue;
 
       // Determine overall sentiment
       let overall: 'Risk-on' | 'Neutral' | 'Risk-off' = 'Neutral';
@@ -101,6 +151,13 @@ export const MarketSentimentOverview = () => {
 
       // Generate alerts based on real indicator thresholds
       const alerts: Array<{ type: 'positive' | 'negative' | 'neutral'; message: string; }> = [];
+      
+      // AORI alerts
+      if (aoriValue > 75) {
+        alerts.push({ type: 'positive', message: 'Høy alpha mulighet i markedet' });
+      } else if (aoriValue < 35) {
+        alerts.push({ type: 'negative', message: 'Begrenset alpha mulighet' });
+      }
       
       if (Math.abs(smfiData) > 2) {
         alerts.push({
@@ -132,6 +189,7 @@ export const MarketSentimentOverview = () => {
         overall,
         overallScore,
         indicators: {
+          aori: { value: aoriValue, interpretation: aoriInterpretation },
           ssi: { value: ssiData, sentiment: ssiSentiment },
           smfi: { value: smfiData, sentiment: smfiSentiment },
           vdi: { value: vdiData },
@@ -246,7 +304,15 @@ export const MarketSentimentOverview = () => {
           </div>
 
           {/* Indicator Cards Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <Card className="p-4 text-center">
+              <div className="text-xs text-muted-foreground mb-1">AORI</div>
+              <div className="text-2xl font-bold">{sentiment.indicators.aori.value.toFixed(0)}</div>
+              <Badge variant="outline" className="mt-2 text-xs">
+                {sentiment.indicators.aori.interpretation}
+              </Badge>
+            </Card>
+
             <Card className="p-4 text-center">
               <div className="text-xs text-muted-foreground mb-1">SSI</div>
               <div className="text-2xl font-bold">{sentiment.indicators.ssi.value.toFixed(2)}</div>
