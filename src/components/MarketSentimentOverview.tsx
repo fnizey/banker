@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { TrendingUp, TrendingDown, Activity, AlertCircle, Gauge } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -33,39 +34,67 @@ export const MarketSentimentOverview = () => {
   const fetchMarketSentiment = async () => {
     setLoading(true);
     try {
-      // Fetch only the indicators we know exist
+      console.log('🔄 Fetching market sentiment data...');
+      
       const [ssiRes, smfiRes, vdiRes, larsRes] = await Promise.all([
-        supabase.functions.invoke('calculate-ssi', { body: { days: 30 } }).catch(() => ({ data: null, error: true })),
-        supabase.functions.invoke('calculate-smfi', { body: { days: 30 } }).catch(() => ({ data: null, error: true })),
-        supabase.functions.invoke('calculate-vdi', { body: { days: 30 } }).catch(() => ({ data: null, error: true })),
-        supabase.functions.invoke('calculate-lars', { body: { days: 30 } }).catch(() => ({ data: null, error: true })),
+        supabase.functions.invoke('calculate-ssi', { body: { days: 30 } }),
+        supabase.functions.invoke('calculate-smfi', { body: { days: 30 } }),
+        supabase.functions.invoke('calculate-vdi', { body: { days: 30 } }),
+        supabase.functions.invoke('calculate-lars', { body: { days: 30 } }),
       ]);
 
-      // Extract latest values with fallbacks
-      const ssiData = ssiRes.data?.currentSSI?.ssiEMA ?? 0;
-      const ssiSentiment = ssiRes.data?.sentiment ?? 'Neutral';
-      
-      // Calculate AORI from components instead of calling separate function
-      const smfiData = smfiRes.data?.currentSMFI?.smfi ?? 0;
-      const vdiData = vdiRes.data?.currentVDI?.vdi ?? 1.0;
-      const larsData = larsRes.data?.currentLARS?.lars ?? 0;
-      
-      // Simple AORI approximation: average of normalized indicators
+      console.log('📊 SSI Response:', ssiRes);
+      console.log('📊 SMFI Response:', smfiRes);
+      console.log('📊 VDI Response:', vdiRes);
+      console.log('📊 LARS Response:', larsRes);
+
+      // Check for errors
+      if (ssiRes.error) {
+        console.error('❌ SSI Error:', ssiRes.error);
+        throw new Error(`SSI: ${ssiRes.error.message}`);
+      }
+      if (smfiRes.error) {
+        console.error('❌ SMFI Error:', smfiRes.error);
+        throw new Error(`SMFI: ${smfiRes.error.message}`);
+      }
+      if (vdiRes.error) {
+        console.error('❌ VDI Error:', vdiRes.error);
+        throw new Error(`VDI: ${vdiRes.error.message}`);
+      }
+      if (larsRes.error) {
+        console.error('❌ LARS Error:', larsRes.error);
+        throw new Error(`LARS: ${larsRes.error.message}`);
+      }
+
+      // Extract latest values - NO FALLBACKS, must have real data
+      const ssiData = ssiRes.data?.currentSSI?.ssiEMA;
+      const ssiSentiment = ssiRes.data?.sentiment;
+      const smfiData = smfiRes.data?.currentSMFI?.smfi;
+      const smfiSentiment = smfiRes.data?.sentiment;
+      const vdiData = vdiRes.data?.currentVDI?.vdi;
+      const larsData = larsRes.data?.currentLARS?.lars;
+
+      console.log('✅ Extracted values:', { ssiData, smfiData, vdiData, larsData });
+
+      if (ssiData === undefined || smfiData === undefined || vdiData === undefined || larsData === undefined) {
+        throw new Error('Missing indicator data - one or more indicators returned undefined');
+      }
+
+      // Calculate AORI from components
       const ssiNormForAORI = Math.max(0, Math.min(100, 50 - ssiData * 10));
       const smfiNormForAORI = Math.max(0, Math.min(100, 50 - smfiData * 10));
       const vdiNormForAORI = Math.max(0, Math.min(100, (2 - vdiData) * 50));
       const larsNormForAORI = Math.max(0, Math.min(100, 50 + larsData * 25));
       const aoriValue = (ssiNormForAORI + smfiNormForAORI + vdiNormForAORI + larsNormForAORI) / 4;
       
-      const smfiSentiment = smfiRes.data?.sentiment ?? 'Neutral';
       const aoriInterpretation = aoriValue > 70 ? 'High alpha' : aoriValue > 35 ? 'Moderate' : 'Low alpha';
 
       // Calculate overall sentiment score (0-100)
-      const ssiNorm = Math.max(0, Math.min(100, 50 - ssiData * 10)); // Lower SSI = more risk-on
+      const ssiNorm = Math.max(0, Math.min(100, 50 - ssiData * 10));
       const aoriNorm = aoriValue;
-      const smfiNorm = Math.max(0, Math.min(100, 50 - smfiData * 10)); // Lower SMFI = more risk-on
-      const vdiNorm = Math.max(0, Math.min(100, (2 - vdiData) * 50)); // Lower VDI = better
-      const larsNorm = Math.max(0, Math.min(100, 50 + larsData * 25)); // Positive LARS = risk-on
+      const smfiNorm = Math.max(0, Math.min(100, 50 - smfiData * 10));
+      const vdiNorm = Math.max(0, Math.min(100, (2 - vdiData) * 50));
+      const larsNorm = Math.max(0, Math.min(100, 50 + larsData * 25));
 
       const overallScore = (ssiNorm + aoriNorm + smfiNorm + vdiNorm + larsNorm) / 5;
 
@@ -122,7 +151,9 @@ export const MarketSentimentOverview = () => {
         alerts,
       });
     } catch (error) {
-      console.error('Error fetching market sentiment:', error);
+      console.error('❌ Error fetching market sentiment:', error);
+      // Show error to user
+      setSentiment(null);
     } finally {
       setLoading(false);
     }
@@ -153,7 +184,26 @@ export const MarketSentimentOverview = () => {
     );
   }
 
-  if (!sentiment) return null;
+  if (!sentiment) {
+    return (
+      <Card className="shadow-lg border-2 border-destructive">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-destructive">
+            <AlertCircle className="w-5 h-5" />
+            Kunne ikke laste markedssentiment
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground mb-4">
+            Klarte ikke å hente data fra indikatorene. Sjekk konsollen for detaljer.
+          </p>
+          <Button onClick={fetchMarketSentiment} variant="outline">
+            Prøv igjen
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <motion.div
