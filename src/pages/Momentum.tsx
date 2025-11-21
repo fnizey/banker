@@ -63,21 +63,34 @@ export default function Momentum() {
   const [xAxis, setXAxis] = useState("rsi");
   const [yAxis, setYAxis] = useState("macd");
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ["momentum", period],
     queryFn: async () => {
+      console.log('Calling calculate-momentum with days:', period);
       const { data: responseData, error } = await supabase.functions.invoke("calculate-momentum", {
         body: { days: period },
       });
-      if (error) throw error;
-      console.log("Momentum data received:", responseData);
-      return responseData?.momentum as MomentumData[];
+      console.log('Raw response:', responseData);
+      console.log('Response error:', error);
+      if (error) {
+        console.error('Supabase function error:', error);
+        throw error;
+      }
+      if (!responseData?.success) {
+        console.error('Function returned error:', responseData?.error);
+        throw new Error(responseData?.error || 'Unknown error');
+      }
+      const momentum = responseData?.momentum as MomentumData[];
+      console.log("Momentum data received:", momentum?.length, "banks");
+      return momentum;
     },
     refetchInterval: 5 * 60 * 1000, // 5 minutes
+    retry: 1,
   });
 
   console.log("useQuery data:", data);
   console.log("isLoading:", isLoading);
+  console.log("error:", error);
 
   const handleExport = () => {
     if (!data || data.length === 0) return;

@@ -180,20 +180,97 @@ function simpleOLS(x: number[], y: number[]): { alpha: number; beta: number; res
   return { alpha, beta, residuals };
 }
 
-// Multiple regression with dummy variables
+// Multiple regression with dummy variables - proper implementation
 function multipleOLS(y: number[], X: number[][]): { coefficients: number[]; residuals: number[]; rSquared: number } {
-  // Simple approximation: sector beta + size dummies + turnover
-  // For simplicity, use simple OLS on sector return as main predictor
-  const sectorReturns = X.map(row => row[0]);
-  const { alpha, beta, residuals } = simpleOLS(sectorReturns, y);
+  const n = y.length;
+  const k = X[0].length; // number of predictors
+  
+  // Build design matrix with intercept
+  const designMatrix: number[][] = [];
+  for (let i = 0; i < n; i++) {
+    designMatrix.push([1, ...X[i]]); // Add intercept column
+  }
+  
+  // Simple matrix multiplication for X'X and X'y
+  const XtX: number[][] = [];
+  const Xty: number[] = [];
+  
+  for (let i = 0; i <= k; i++) {
+    XtX[i] = [];
+    Xty[i] = 0;
+    for (let j = 0; j <= k; j++) {
+      let sum = 0;
+      for (let row = 0; row < n; row++) {
+        sum += designMatrix[row][i] * designMatrix[row][j];
+      }
+      XtX[i][j] = sum;
+    }
+    for (let row = 0; row < n; row++) {
+      Xty[i] += designMatrix[row][i] * y[row];
+    }
+  }
+  
+  // Solve using Gaussian elimination (simple implementation)
+  const coefficients: number[] = [];
+  try {
+    // Augment matrix
+    for (let i = 0; i <= k; i++) {
+      XtX[i].push(Xty[i]);
+    }
+    
+    // Forward elimination
+    for (let i = 0; i <= k; i++) {
+      let maxRow = i;
+      for (let j = i + 1; j <= k; j++) {
+        if (Math.abs(XtX[j][i]) > Math.abs(XtX[maxRow][i])) {
+          maxRow = j;
+        }
+      }
+      [XtX[i], XtX[maxRow]] = [XtX[maxRow], XtX[i]];
+      
+      if (Math.abs(XtX[i][i]) < 1e-10) continue;
+      
+      for (let j = i + 1; j <= k; j++) {
+        const factor = XtX[j][i] / XtX[i][i];
+        for (let col = i; col <= k + 1; col++) {
+          XtX[j][col] -= factor * XtX[i][col];
+        }
+      }
+    }
+    
+    // Back substitution
+    for (let i = k; i >= 0; i--) {
+      let sum = XtX[i][k + 1];
+      for (let j = i + 1; j <= k; j++) {
+        sum -= XtX[i][j] * coefficients[j];
+      }
+      coefficients[i] = Math.abs(XtX[i][i]) > 1e-10 ? sum / XtX[i][i] : 0;
+    }
+  } catch {
+    // Fallback to simple OLS if matrix is singular
+    const sectorReturns = X.map(row => row[0]);
+    const { alpha, beta } = simpleOLS(sectorReturns, y);
+    coefficients.push(alpha, beta);
+    for (let i = 2; i <= k; i++) coefficients.push(0);
+  }
+  
+  // Calculate fitted values and residuals
+  const residuals: number[] = [];
+  for (let i = 0; i < n; i++) {
+    let fitted = coefficients[0];
+    for (let j = 0; j < k; j++) {
+      fitted += coefficients[j + 1] * X[i][j];
+    }
+    residuals.push(y[i] - fitted);
+  }
   
   // Calculate R²
   const meanY = y.reduce((a, b) => a + b, 0) / y.length;
   const ssTot = y.reduce((a, yi) => a + (yi - meanY) ** 2, 0);
   const ssRes = residuals.reduce((a, r) => a + r ** 2, 0);
-  const rSquared = ssTot > 0 ? 1 - (ssRes / ssTot) : 0;
+  const rSquared = ssTot > 1e-10 ? Math.max(0, Math.min(1, 1 - (ssRes / ssTot))) : 0;
   
-  return { coefficients: [alpha, beta], residuals, rSquared };
+  return { coefficients, residuals, rSquared };
 }
 
 serve(async (req) => {
@@ -330,9 +407,17 @@ serve(async (req) => {
     const latestDate = commonDates[commonDates.length - 1];
     const latestData = results.filter(r => r.date === latestDate && r.sres != null);
 
-    // Outlier table: top 3 positive (SRES high, ATS >= 1), top 3 negative (SRES low, ATS >= 1)
-    const positiveOutliers = latestData.filter(d => d.ats >= 1).sort((a, b) => b.sres - a.sres).slice(0, 3);
-    const negativeOutliers = latestData.filter(d => d.ats >= 1).sort((a, b) => a.sres - b.sres).slice(0, 3);
+    // Outlier table: top 3 positive SRES, top 3 negative SRES (must have abnormal turnover)
+    // First get candidates with ATS >= 1
+    const highTurnoverBanks = latestData.filter(d => d.ats >= 1);
+    
+    // Separate positive and negative SRES
+    const positiveCandidates = highTurnoverBanks.filter(d => d.sres > 0).sort((a, b) => b.sres - a.sres);
+    const negativeCandidates = highTurnoverBanks.filter(d => d.sres < 0).sort((a, b) => a.sres - b.sres);
+    
+    // Take top 3 from each (no overlap possible since positive vs negative SRES)
+    const positiveOutliers = positiveCandidates.slice(0, 3);
+    const negativeOutliers = negativeCandidates.slice(0, 3);
 
     // Calculate 5-day delta SRES
     for (const d of [...positiveOutliers, ...negativeOutliers]) {

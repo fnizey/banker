@@ -145,13 +145,21 @@ function calculateSMA(prices: number[], period: number): number {
   return sum / period;
 }
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "content-type" } });
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { days = 180 } = await req.json();
+    console.log('Momentum calculation started');
+    const body = await req.json();
+    const { days = 180 } = body;
+    console.log(`Requested days: ${days}`);
     
     // Fetch extra data for MA200 calculation (need at least 200 days + requested period)
     const daysToFetch = Math.max(days + 200, 400);
@@ -201,15 +209,17 @@ serve(async (req) => {
 
     const momentum = results.filter((r) => r !== null);
 
-    return new Response(JSON.stringify({ momentum }), {
-      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+    console.log(`Calculated momentum for ${momentum.length} banks`);
+
+    return new Response(JSON.stringify({ success: true, momentum }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("Error:", error);
+    console.error("Momentum calculation error:", error);
     const message = error instanceof Error ? error.message : "Unknown error";
-    return new Response(JSON.stringify({ error: message }), {
+    return new Response(JSON.stringify({ success: false, error: message }), {
       status: 500,
-      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });

@@ -338,35 +338,63 @@ const AdvancedAnalytics = () => {
                 <Card>
                   <CardHeader>
                     <CardTitle>Return vs TO_Norm (i dag)</CardTitle>
-                    <CardDescription>Bubble size = |SRES|, color by sign</CardDescription>
+                    <CardDescription>Fargekode: grønn = positiv SRES, rød = negativ SRES</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <ResponsiveContainer width="100%" height={400}>
-                      <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis type="number" dataKey="turnoverNorm" name="TO_Norm" label={{ value: 'Normalized Turnover', position: 'insideBottom', offset: -10 }} />
-                        <YAxis type="number" dataKey="return" name="Return" label={{ value: 'Return', angle: -90, position: 'insideLeft' }} />
+                      <ScatterChart margin={{ top: 20, right: 20, bottom: 60, left: 60 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis 
+                          type="number" 
+                          dataKey="turnoverNorm" 
+                          name="TO_Norm"
+                          stroke="hsl(var(--foreground))"
+                          label={{ 
+                            value: 'Normalized Turnover', 
+                            position: 'insideBottom', 
+                            offset: -10,
+                            style: { fill: 'hsl(var(--foreground))' }
+                          }} 
+                        />
+                        <YAxis 
+                          type="number" 
+                          dataKey="return" 
+                          name="Return"
+                          stroke="hsl(var(--foreground))"
+                          tickFormatter={(value) => `${(value * 100).toFixed(1)}%`}
+                          label={{ 
+                            value: 'Return', 
+                            angle: -90, 
+                            position: 'insideLeft',
+                            style: { fill: 'hsl(var(--foreground))' }
+                          }} 
+                        />
                         <Tooltip cursor={{ strokeDasharray: '3 3' }} content={({ payload }) => {
                           if (!payload || payload.length === 0) return null;
                           const data = payload[0].payload;
                           return (
-                            <div className="bg-card border rounded-lg p-2 shadow-lg text-xs">
-                              <div className="font-semibold">{data.name}</div>
+                            <div className="bg-card border border-border rounded-lg p-3 shadow-lg text-xs">
+                              <div className="font-semibold mb-1">{data.name}</div>
                               <div>Return: {(data.return * 100).toFixed(2)}%</div>
                               <div>TO_Norm: {data.turnoverNorm?.toFixed(2)}</div>
                               <div>SRES: {data.sres?.toFixed(3)}</div>
                             </div>
                           );
                         }} />
-                        <Scatter data={outlierData.scatterData} fill="#8884d8">
-                          {outlierData.scatterData?.map((entry: any, index: number) => (
-                            <circle
-                              key={`cell-${index}`}
-                              r={Math.abs(entry.sres || 0) * 3 + 3}
-                              fill={entry.sres > 0 ? '#22c55e' : '#ef4444'}
-                              opacity={0.6}
-                            />
-                          ))}
+                        <Scatter data={outlierData.scatterData} fill="hsl(var(--primary))">
+                          {outlierData.scatterData?.map((entry: any, index: number) => {
+                            const color = entry.sres > 0 ? '#22c55e' : entry.sres < 0 ? '#ef4444' : '#94a3b8';
+                            return (
+                              <circle
+                                key={`cell-${index}`}
+                                cx={0}
+                                cy={0}
+                                r={5}
+                                fill={color}
+                                fillOpacity={0.7}
+                              />
+                            );
+                          })}
                         </Scatter>
                       </ScatterChart>
                     </ResponsiveContainer>
