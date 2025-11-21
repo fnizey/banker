@@ -319,7 +319,14 @@ serve(async (req) => {
       return cumulative;
     });
     
-    // Calculate percentiles and std dev for thresholds
+    // Calculate cumulative normalized volume (turnover rotation)
+    let cumulativeVolume = 0;
+    const cumulativeVolumes = turnoverRotations.map(val => {
+      cumulativeVolume += val;
+      return cumulativeVolume;
+    });
+    
+    // Calculate percentiles and std dev for thresholds (cumulative rotation)
     const p90 = calculatePercentile(cumulativeRotations, 90);
     const p10 = calculatePercentile(cumulativeRotations, 10);
     const meanCumulative = cumulativeRotations.reduce((a, b) => a + b, 0) / cumulativeRotations.length;
@@ -327,11 +334,20 @@ serve(async (req) => {
     const upperStdDev = meanCumulative + stdDevCumulative;
     const lowerStdDev = meanCumulative - stdDevCumulative;
     
+    // Calculate percentiles and std dev for cumulative volume
+    const p90Volume = calculatePercentile(cumulativeVolumes, 90);
+    const p10Volume = calculatePercentile(cumulativeVolumes, 10);
+    const meanCumulativeVolume = cumulativeVolumes.reduce((a, b) => a + b, 0) / cumulativeVolumes.length;
+    const stdDevCumulativeVolume = calculateStdDev(cumulativeVolumes);
+    const upperStdDevVolume = meanCumulativeVolume + stdDevCumulativeVolume;
+    const lowerStdDevVolume = meanCumulativeVolume - stdDevCumulativeVolume;
+    
     // Add all new metrics to time series
     const enrichedTimeSeries = rotationTimeSeriesWithZScore.map((r, i) => ({
       ...r,
       smoothRotation: smoothRotations[i],
       cumulativeRotation: cumulativeRotations[i],
+      cumulativeVolume: cumulativeVolumes[i],
     }));
     
     // Get current metrics (last date)
@@ -346,6 +362,11 @@ serve(async (req) => {
       upperStdDev,
       lowerStdDev,
       meanCumulative,
+      p90Volume,
+      p10Volume,
+      upperStdDevVolume,
+      lowerStdDevVolume,
+      meanCumulativeVolume,
     };
     
     // Get bank categorization for UI

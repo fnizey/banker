@@ -15,6 +15,7 @@ interface RotationData {
   combinedRotation: number;
   smoothRotation: number;
   cumulativeRotation: number;
+  cumulativeVolume: number;
 }
 
 interface Thresholds {
@@ -23,6 +24,11 @@ interface Thresholds {
   upperStdDev: number;
   lowerStdDev: number;
   meanCumulative: number;
+  p90Volume: number;
+  p10Volume: number;
+  upperStdDevVolume: number;
+  lowerStdDevVolume: number;
+  meanCumulativeVolume: number;
 }
 
 interface BankInfo {
@@ -90,6 +96,7 @@ const CapitalRotation = () => {
       'Combined Rotation': d.combinedRotation.toFixed(3),
       'Smooth Rotation': d.smoothRotation.toFixed(3),
       'Cumulative Rotation': d.cumulativeRotation.toFixed(3),
+      'Cumulative Volume': d.cumulativeVolume.toFixed(3),
     }));
     
     exportToExcel(exportData, 'Kapitalrotasjon', 'Rotation Data');
@@ -271,11 +278,11 @@ const CapitalRotation = () => {
             )}
           </Card>
 
-          {/* Return Rotation Chart */}
-          <Card className="p-6 shadow-lg border-2 bg-gradient-to-br from-card via-card to-primary/5">
-            <h2 className="text-2xl font-bold mb-4">Avkastningsrotasjon (Stor - Liten)</h2>
+          {/* Accumulated Normalized Volume Chart */}
+          <Card className="p-6 shadow-lg border-2 bg-gradient-to-br from-card via-card to-warning/5">
+            <h2 className="text-2xl font-bold mb-4">Akkumulert normalisert volum</h2>
             <p className="text-sm text-muted-foreground mb-4">
-              Positiv verdi → kapital mot store banker (risk-off) | Negativ verdi → kapital mot små banker (risk-on)
+              Måler akkumulert kapitalflyt basert på normalisert omsetning. Positive verdier = mer kapital akkumulert mot større banker. Negative verdier = mer kapital mot mindre banker. Volumet er justert for markedsverdi (market cap).
             </p>
             {loading && rotationData.length === 0 ? (
               <Skeleton className="h-[300px] w-full" />
@@ -286,7 +293,7 @@ const CapitalRotation = () => {
                   <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" />
                   <YAxis stroke="hsl(var(--muted-foreground))" />
                   <Tooltip 
-                    formatter={(value: number) => [`${value.toFixed(3)}%`, 'Rotasjon']}
+                    formatter={(value: number) => [value.toFixed(2), 'Akkumulert volum']}
                     labelStyle={{ color: 'hsl(var(--foreground))' }}
                     contentStyle={{ 
                       backgroundColor: 'hsl(var(--card))', 
@@ -295,48 +302,20 @@ const CapitalRotation = () => {
                     }}
                   />
                   <Legend />
+                  {thresholds && (
+                    <>
+                      <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" strokeDasharray="5 5" label="Null" />
+                      <ReferenceLine y={thresholds.upperStdDevVolume} stroke="hsl(var(--warning))" strokeDasharray="3 3" label="+1σ" />
+                      <ReferenceLine y={thresholds.lowerStdDevVolume} stroke="hsl(var(--warning))" strokeDasharray="3 3" label="-1σ" />
+                      <ReferenceLine y={thresholds.p90Volume} stroke="hsl(var(--destructive))" strokeDasharray="2 2" label="P90" />
+                      <ReferenceLine y={thresholds.p10Volume} stroke="hsl(var(--success))" strokeDasharray="2 2" label="P10" />
+                    </>
+                  )}
                   <Line 
                     type="monotone" 
-                    dataKey="returnRotation" 
-                    name="Avkastningsrotasjon"
-                    stroke="hsl(var(--primary))"
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            )}
-          </Card>
-
-          {/* Turnover Rotation Chart */}
-          <Card className="p-6 shadow-lg border-2 bg-gradient-to-br from-card via-card to-accent/5">
-            <h2 className="text-2xl font-bold mb-4">Omsetningsrotasjon (normalisert)</h2>
-            <p className="text-sm text-muted-foreground mb-4">
-              Positiv verdi → store banker handles mer enn normalt | Negativ verdi → små banker handles mer enn normalt
-            </p>
-            {loading && rotationData.length === 0 ? (
-              <Skeleton className="h-[300px] w-full" />
-            ) : (
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={rotationData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" />
-                  <YAxis stroke="hsl(var(--muted-foreground))" />
-                  <Tooltip 
-                    formatter={(value: number) => [value.toFixed(3), 'Rotasjon']}
-                    labelStyle={{ color: 'hsl(var(--foreground))' }}
-                    contentStyle={{ 
-                      backgroundColor: 'hsl(var(--card))', 
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '8px'
-                    }}
-                  />
-                  <Legend />
-                  <Line 
-                    type="monotone" 
-                    dataKey="turnoverRotation" 
-                    name="Omsetningsrotasjon"
-                    stroke="hsl(var(--accent))"
+                    dataKey="cumulativeVolume" 
+                    name="Akkumulert volum"
+                    stroke="hsl(var(--warning))"
                     strokeWidth={2}
                     dot={false}
                   />

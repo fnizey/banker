@@ -2,11 +2,12 @@ import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Download } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
+import { exportToExcel } from '@/utils/excelExport';
 
 interface PerformanceData {
   date: string;
@@ -65,6 +66,19 @@ const PerformanceBySize = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleExport = () => {
+    if (!filteredData || filteredData.length === 0) return;
+    
+    const exportData = filteredData.map(d => ({
+      Dato: d.date,
+      'Små banker (%)': d.Small.toFixed(2),
+      'Mellomstore (%)': d.Mid.toFixed(2),
+      'Store banker (%)': d.Large.toFixed(2),
+    }));
+    
+    exportToExcel(exportData, 'Relativ_Ytelse', 'Performance Data');
   };
 
   useEffect(() => {
@@ -146,10 +160,16 @@ const PerformanceBySize = () => {
               Sammenlign akkumulert avkastning for små, mellomstore og store banker
             </p>
           </div>
-          <Button onClick={fetchPerformanceData} disabled={loading} className="shadow-lg hover:shadow-xl transition-shadow">
-            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            Oppdater data
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={handleExport} disabled={!filteredData || filteredData.length === 0} variant="outline">
+              <Download className="mr-2 h-4 w-4" />
+              Last ned Excel
+            </Button>
+            <Button onClick={fetchPerformanceData} disabled={loading} className="shadow-lg hover:shadow-xl transition-shadow">
+              <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              Oppdater data
+            </Button>
+          </div>
         </div>
 
         <div className="space-y-6">
