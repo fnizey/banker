@@ -34,30 +34,6 @@ const INDICATORS = [
   { value: "golden_cross", label: "Golden Cross (%)" },
 ];
 
-const BANK_NAMES: Record<string, string> = {
-  "SB1NO.OL": "SB1 Sør-Norge",
-  "SBNOR.OL": "Sparebanken Norge",
-  "MING.OL": "SB1 SMN",
-  "SPOL.OL": "Sparebanken Øst",
-  "NONG.OL": "SB1 Nord-Norge",
-  "MORG.OL": "Morg",
-  "SPOG.OL": "Sparebanken Vest",
-  "HELG.OL": "Helgeland Sparebank",
-  "ROGS.OL": "Rogs",
-  "RING.OL": "Ringkjøbing",
-  "SOAG.OL": "Soag",
-  "SNOR.OL": "SB1 Nordmøre",
-  "HGSB.OL": "Holand og Setskog",
-  "JAREN.OL": "Jæren",
-  "AURG.OL": "Aurskog",
-  "SKUE.OL": "Skue",
-  "MELG.OL": "Melhus",
-  "SOGN.OL": "Sogn",
-  "HSPG.OL": "Hemne",
-  "VVL.OL": "Voss Veksel",
-  "BIEN.OL": "Bien",
-  "DNB.OL": "DNB",
-};
 
 export default function Momentum() {
   const [period, setPeriod] = useState<Period>(180);
@@ -104,7 +80,6 @@ export default function Momentum() {
     if (!data || data.length === 0) return;
     
     const exportData = data.map(row => ({
-      Bank: BANK_NAMES[row.ticker],
       Ticker: row.ticker,
       Pris: row.current_price.toFixed(2),
       MACD: row.macd.toFixed(3),
@@ -323,7 +298,7 @@ export default function Momentum() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Bank</TableHead>
+                    <TableHead>Ticker</TableHead>
                     <TableHead className="text-right">Pris</TableHead>
                     <TableHead className="text-right">MACD</TableHead>
                     <TableHead className="text-right">MACD Signal</TableHead>
@@ -337,7 +312,7 @@ export default function Momentum() {
                 <TableBody>
                   {data?.map((row) => (
                     <TableRow key={row.ticker}>
-                      <TableCell className="font-medium">{BANK_NAMES[row.ticker]}</TableCell>
+                      <TableCell className="font-medium">{row.ticker}</TableCell>
                       <TableCell className="text-right">{row.current_price.toFixed(2)}</TableCell>
                       <TableCell className="text-right" style={{ color: getColor(row.macd, "macd") }}>
                         {row.macd.toFixed(3)}
