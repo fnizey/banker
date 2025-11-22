@@ -67,22 +67,29 @@ export default function Momentum() {
   const { data, isLoading, error } = useQuery({
     queryKey: ["momentum", period],
     queryFn: async () => {
-      console.log('Calling calculate-momentum with days:', period);
+      console.log('🔍 Fetching momentum data from edge function...');
+      console.log('📅 Period:', period, 'days');
+      
       const { data: responseData, error } = await supabase.functions.invoke("calculate-momentum", {
         body: { days: period },
       });
-      console.log('Raw response:', responseData);
-      console.log('Response error:', error);
+      
+      console.log('📦 Raw response from edge function:', responseData);
+      console.log('❌ Response error:', error);
+      
       if (error) {
-        console.error('Supabase function error:', error);
+        console.error('🚨 Supabase function error:', error);
         throw error;
       }
       if (!responseData?.success) {
-        console.error('Function returned error:', responseData?.error);
+        console.error('🚨 Edge function returned error:', responseData?.error);
         throw new Error(responseData?.error || 'Unknown error');
       }
+      
       const momentum = responseData?.momentum as MomentumData[];
-      console.log("Momentum data received:", momentum?.length, "banks");
+      console.log("✅ Momentum data received:", momentum?.length, "banks");
+      console.log("📊 Sample data point:", momentum?.[0]);
+      
       return momentum;
     },
     refetchInterval: 5 * 60 * 1000, // 5 minutes
@@ -144,6 +151,9 @@ export default function Momentum() {
         <h1 className="text-3xl font-bold mb-2">Momentum Indikator</h1>
         <p className="text-muted-foreground">
           Teknisk analyse med MACD, RSI, bevegelige gjennomsnitt og Golden Cross
+        </p>
+        <p className="text-xs text-muted-foreground mt-1">
+          📊 Data hentet fra Yahoo Finance API i sanntid • Beregnet for 22 norske sparebanker
         </p>
       </div>
 

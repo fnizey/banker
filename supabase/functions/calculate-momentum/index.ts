@@ -35,6 +35,8 @@ const BANK_NAMES: Record<string, string> = {
 async function fetchYahooData(ticker: string, startDate: number, endDate: number) {
   const url = `https://corsproxy.io/?https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?period1=${startDate}&period2=${endDate}&interval=1d`;
   
+  console.log(`📡 Fetching ${ticker} from Yahoo Finance API`);
+  
   const response = await fetch(url, {
     headers: { "Accept": "application/json" },
   });
@@ -63,6 +65,7 @@ async function fetchYahooData(ticker: string, startDate: number, endDate: number
     }
   }
 
+  console.log(`✅ Fetched ${data.length} data points for ${ticker}`);
   return data;
 }
 
