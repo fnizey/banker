@@ -56,6 +56,7 @@ const BANK_NAMES: Record<string, string> = {
   "HSPG.OL": "Hemne",
   "VVL.OL": "Voss Veksel",
   "BIEN.OL": "Bien",
+  "DNB.OL": "DNB",
 };
 
 export default function Momentum() {
@@ -203,6 +204,28 @@ export default function Momentum() {
           </CardHeader>
           <CardContent>
             <Skeleton className="h-96 w-full" />
+          </CardContent>
+        </Card>
+      ) : error ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Feil ved lasting av data</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-destructive">
+              {error instanceof Error ? error.message : 'Kunne ikke laste momentum-data. Prøv igjen senere.'}
+            </p>
+          </CardContent>
+        </Card>
+      ) : !data || data.length === 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Ingen data tilgjengelig</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground">
+              Ingen momentum-data funnet for valgt periode.
+            </p>
           </CardContent>
         </Card>
       ) : (
