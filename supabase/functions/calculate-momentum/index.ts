@@ -7,30 +7,6 @@ const TICKERS = [
   "HSPG.OL", "VVL.OL", "BIEN.OL", "DNB.OL"
 ];
 
-const BANK_NAMES: Record<string, string> = {
-  "SB1NO.OL": "SB1 Sør-Norge",
-  "SBNOR.OL": "Sparebanken Norge",
-  "MING.OL": "SB1 SMN",
-  "SPOL.OL": "Sparebanken Øst",
-  "NONG.OL": "SB1 Nord-Norge",
-  "MORG.OL": "Morg",
-  "SPOG.OL": "Sparebanken Vest",
-  "HELG.OL": "Helgeland Sparebank",
-  "ROGS.OL": "Rogs",
-  "RING.OL": "Ringkjøbing",
-  "SOAG.OL": "Soag",
-  "SNOR.OL": "SB1 Nordmøre",
-  "HGSB.OL": "Holand og Setskog",
-  "JAREN.OL": "Jæren",
-  "AURG.OL": "Aurskog",
-  "SKUE.OL": "Skue",
-  "MELG.OL": "Melhus",
-  "SOGN.OL": "Sogn",
-  "HSPG.OL": "Hemne",
-  "VVL.OL": "Voss Veksel",
-  "BIEN.OL": "Bien",
-  "DNB.OL": "DNB",
-};
 
 async function fetchYahooData(ticker: string, startDate: number, endDate: number) {
   const url = `https://corsproxy.io/?https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?period1=${startDate}&period2=${endDate}&interval=1d`;
@@ -193,7 +169,7 @@ serve(async (req) => {
 
           return {
             ticker,
-            name: BANK_NAMES[ticker] || ticker,
+            name: ticker,
             macd: macdData.macd,
             macd_signal: macdData.signal,
             macd_histogram: macdData.histogram,
