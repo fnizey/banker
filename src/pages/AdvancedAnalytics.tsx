@@ -34,6 +34,7 @@ const AdvancedAnalytics = () => {
       if (error) throw error;
       return data;
     },
+    staleTime: 0,
     refetchOnWindowFocus: false,
   });
 
