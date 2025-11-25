@@ -43,38 +43,22 @@ export default function Momentum() {
   const { data, isLoading, error } = useQuery({
     queryKey: ["momentum", period],
     queryFn: async () => {
-      console.log('🔍 Fetching momentum data from edge function...');
-      console.log('📅 Period:', period, 'days');
-      
       const { data: responseData, error } = await supabase.functions.invoke("calculate-momentum", {
         body: { days: period },
       });
       
-      console.log('📦 Raw response from edge function:', responseData);
-      console.log('❌ Response error:', error);
-      
-      if (error) {
-        console.error('🚨 Supabase function error:', error);
-        throw error;
-      }
+      if (error) throw error;
       if (!responseData?.success) {
-        console.error('🚨 Edge function returned error:', responseData?.error);
         throw new Error(responseData?.error || 'Unknown error');
       }
       
-      const momentum = responseData?.momentum as MomentumData[];
-      console.log("✅ Momentum data received:", momentum?.length, "banks");
-      console.log("📊 Sample data point:", momentum?.[0]);
-      
-      return momentum;
+      return responseData.momentum as MomentumData[];
     },
-    refetchInterval: 5 * 60 * 1000, // 5 minutes
+    staleTime: 0,
+    refetchInterval: 5 * 60 * 1000,
     retry: 1,
   });
 
-  console.log("useQuery data:", data);
-  console.log("isLoading:", isLoading);
-  console.log("error:", error);
 
   const handleExport = () => {
     if (!data || data.length === 0) return;
@@ -111,14 +95,11 @@ export default function Momentum() {
 
   const scatterData = data?.map((item) => ({
     ...item,
-    name: item.name,
+    name: item.ticker,
     ticker: item.ticker,
     x: Number(item[xAxis as keyof MomentumData]),
     y: Number(item[yAxis as keyof MomentumData]),
   })).filter(item => !isNaN(item.x) && !isNaN(item.y));
-
-  console.log("Scatter data points:", scatterData?.length);
-  console.log("Sample point:", scatterData?.[0]);
 
   return (
     <div className="container mx-auto p-6 space-y-6">
