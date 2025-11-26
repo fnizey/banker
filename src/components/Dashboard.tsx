@@ -15,6 +15,7 @@ import { NewsFeed } from './NewsFeed';
 import { CurrencyRates } from './CurrencyRates';
 import { SSBNewsFeed } from './SSBNewsFeed';
 import { MarketSentimentOverview } from './MarketSentimentOverview';
+import { BankHeatmap } from './BankHeatmap';
 
 export const Dashboard = () => {
   const { banksData, loading, lastUpdated, progress, fetchData } = useBankData();
@@ -130,6 +131,9 @@ export const Dashboard = () => {
                       <PeriodSelector selected={selectedPeriod} onChange={setSelectedPeriod} />
                     </div>
                   </Card>
+
+                  {/* Bank Heatmap */}
+                  <BankHeatmap banksData={banksData} selectedPeriod={selectedPeriod} />
 
                   {/* Market Sentiment Overview */}
                   <MarketSentimentOverview />
