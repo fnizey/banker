@@ -30,11 +30,18 @@ export const BankHeatmap = ({ banksData, selectedPeriod }: BankHeatmapProps) => 
     return 'hsl(var(--muted))';
   };
 
+  // Sort banks by change (highest positive to most negative)
+  const sortedBanks = [...banksData].sort((a, b) => {
+    const changeA = getChangeForPeriod(a);
+    const changeB = getChangeForPeriod(b);
+    return changeB - changeA; // Descending order
+  });
+
   return (
     <Card className="p-6 bg-gradient-to-br from-card via-card to-accent/5 shadow-lg border-2">
       <h3 className="text-xl font-bold mb-4">Bank Heatmap</h3>
       <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
-        {banksData.map((bank) => {
+        {sortedBanks.map((bank) => {
           const change = getChangeForPeriod(bank);
           return (
             <div
