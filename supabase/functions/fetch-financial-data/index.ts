@@ -74,7 +74,7 @@ async function fetchFinancials(ticker: string, period: 'annual' | 'quarterly') {
     : 'incomeStatementHistoryQuarterly,balanceSheetHistoryQuarterly,cashflowStatementHistoryQuarterly';
   
   const yahooUrl = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=${modules}`;
-  const url = `https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`;
+  const url = yahooUrl;
   
   console.log(`Fetching financials from Yahoo Finance for ${ticker}, period: ${period}`);
   
@@ -189,7 +189,7 @@ async function fetchDividends(ticker: string) {
   const period2 = Math.floor(Date.now() / 1000);
   
   const yahooUrl = `https://query2.finance.yahoo.com/v8/finance/chart/${ticker}?period1=${period1}&period2=${period2}&interval=1d&events=div`;
-  const url = `https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`;
+  const url = yahooUrl;
   
   const response = await fetch(url, {
     headers: {
@@ -219,7 +219,7 @@ async function fetchSplits(ticker: string) {
   const period2 = Math.floor(Date.now() / 1000);
   
   const yahooUrl = `https://query2.finance.yahoo.com/v8/finance/chart/${ticker}?period1=${period1}&period2=${period2}&interval=1d&events=split`;
-  const url = `https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`;
+  const url = yahooUrl;
   
   const response = await fetch(url, {
     headers: {
@@ -248,7 +248,7 @@ async function fetchSplits(ticker: string) {
 async function fetchHolders(ticker: string) {
   // Use Yahoo Finance quoteSummary API for holders via CORS proxy
   const yahooUrl = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=majorHoldersBreakdown,institutionOwnership`;
-  const url = `https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`;
+  const url = yahooUrl;
   
   const response = await fetch(url, {
     headers: {
