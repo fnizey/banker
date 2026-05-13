@@ -99,7 +99,7 @@ async function fetchHistoricalData(ticker: string, days: number) {
   const endDate = Math.floor(Date.now() / 1000);
   const startDate = endDate - (days * 24 * 60 * 60);
   
-  const url = `https://corsproxy.io/?https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?period1=${startDate}&period2=${endDate}&interval=1d`;
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?period1=${startDate}&period2=${endDate}&interval=1d`;
   
   const response = await fetch(url, {
     headers: { 'Accept': 'application/json' }

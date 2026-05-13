@@ -135,7 +135,7 @@ async function fetchHistoricalPrices(
   
   const fetchPromises = tickers.map(async ticker => {
     try {
-      const url = `https://corsproxy.io/?https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?period1=${startTs}&period2=${endTs}&interval=1d`;
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?period1=${startTs}&period2=${endTs}&interval=1d`;
       const response = await fetch(url);
       
       if (!response.ok) {
